@@ -7,26 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-06
+
 ### Added
-- Comprehensive test suite covering all critical functionality (1,223 lines of test code)
-  - Authentication module tests: 11 tests with 87% coverage (password hashing, JWT generation/validation)
-  - API handlers tests: 14 tests validating input validation and all job creation bounds
-  - API middleware tests: 9 tests for auth middleware and CORS protection
-  - Executor tests: 6 tests for script validation and execution limits
-  - Scheduler tests: 13 tests for cron-like pattern matching and edge cases
-- Test infrastructure helper: in-memory SQLite database factory for test isolation
-- TEST_REPORT.md: Comprehensive documentation of all 57 test cases and coverage metrics
+- Complete backend implementation (Go) with all core services:
+  - API handlers with JWT authentication and role-based access control (admin/user)
+  - SQLite store layer with automatic schema migrations and connection pooling
+  - Job scheduler that evaluates cron-like expressions every 60 seconds
+  - Executor for script validation and subprocess management with timeout support
+  - WebSocket hub for real-time log streaming to connected clients
+  - Middleware for CORS protection and request authentication
+- Complete frontend implementation (Vue.js with Vite):
+  - Responsive SPA for job management and execution monitoring
+  - Real-time log viewer with WebSocket integration
+  - API client abstraction layer and Pinia state management
+  - Metrics dashboard with CPU/memory visualization
+- Build and deployment infrastructure:
+  - Makefile with targets for development and production builds
+  - Docker support with Dockerfile for containerized deployments
+  - Single-binary backend with environment variable configuration
+- Developer tools and documentation:
+  - commi_all.sh script for simplified commit workflow
+  - Example scripts for common operational tasks (backup, health checks)
+  - Product requirements document (prd.txt)
 
-### Changed
-- Improved test database setup with proper in-memory SQLite instances instead of custom mocks
-- Updated test helpers to use NewTestStore() for realistic database testing
-- Enhanced test isolation and cleanup patterns across all test modules
-
-### Fixed
-- Fixed Mock Store type incompatibility in handlers, executor, and middleware tests
-- Fixed JWT token validation test logic (corrected dot counting for 3-part tokens)
-- Fixed error message validation in script size limit tests
-- Removed unused imports and ensured clean test builds
+### Architecture
+- Single-threaded sequential job execution (FIFO queue) to prevent resource contention
+- Bootstrap mode allowing first admin creation without authentication
+- Scheduler duplicate prevention via state checking within same minute
+- Automatic log retention with configurable cleanup (default 30 days)
+- Timezone-aware cron schedule matching
 
 ## [0.1.0] - 2026-01-06
 
