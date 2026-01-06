@@ -4,5 +4,4 @@ instructions: |
   When creating commits in this repository:
   - Do NOT include "Co-Authored-By" trailers in commit messages
   - Commit messages should focus on describing the changes made
-  - Optionally include "🤖 Generated with Claude Code" reference if appropriate
   - Keep messages concise and clear
