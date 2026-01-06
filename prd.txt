@@ -1,0 +1,1492 @@
+# TaskFlow: A Minimal Task Scheduler & Runner
+
+## Core Concept Summary
+
+A lightweight, self-hosted task scheduler with:
+- **Go backend** (single binary, easy deployment)
+- **SQLite storage** (zero external dependencies)
+- **Web UI** (real-time updates, live logs)
+- **Shell script execution** with resource tracking
+- **Cron-like scheduling** with visual multi-selector
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Web UI (Frontend)                        │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
+│  │Dashboard │ │Job Editor│ │Live Logs │ │Resource Graphs   │   │
+│  │& Stats   │ │& Schedule│ │(WebSocket│ │(Historical CPU/  │   │
+│  └──────────┘ └──────────┘ │Streaming)│ │Memory Charts)    │   │
+│                            └──────────┘ └──────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+                              │ HTTP/WebSocket
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Go Backend (Single Binary)                  │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐   │
+│  │ HTTP/WS    │ │ Scheduler  │ │ Executor   │ │ Resource   │   │
+│  │ Server     │ │ Engine     │ │ (Shell)    │ │ Monitor    │   │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘   │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐   │
+│  │ Auth       │ │ SMTP       │ │ Timezone   │ │ Log        │   │
+│  │ (JWT)      │ │ Mailer     │ │ Handler    │ │ Streamer   │   │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     SQLite Database                              │
+│  users │ jobs │ schedules │ runs │ logs │ metrics │ settings   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Critical Implementation Details
+
+### 1. **Job Execution Model**
+
+**Concurrency:** Sequential execution with queuing
+- Jobs run one at a time in a FIFO queue
+- If a job is scheduled while another is running, it's queued
+- Maximum 1 concurrent job execution
+- **Rationale:** Simplicity for single-server deployments; prevents resource contention
+
+**Implementation:**
+```go
+type JobQueue struct {
+    jobs   chan Job
+    worker *Worker
+}
+
+// Single worker goroutine processes one job at a time
+func (jq *JobQueue) worker() {
+    for job := range jq.jobs {
+        jq.executeJob(job)
+    }
+}
+```
+
+### 2. **Initialization & Bootstrap**
+
+**First-Run Setup:**
+- On startup, check if any users exist
+- If not, enter "bootstrap mode"
+- Admin creates the first user via a setup endpoint (no auth required, single use)
+- Setup endpoint disabled after first user created
+
+```go
+// GET /setup/status - Returns true if app needs setup
+// POST /setup/admin - Create first admin user (only works if no users exist)
+// Request: { "username": "admin", "password": "...", "email": "..." }
+// Response: JWT token for initial login
+```
+
+**Configuration:**
+- All config via environment variables
+- Required ENV vars: `JWT_SECRET`, `PORT`, `DB_PATH`
+- Optional: `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+- CORS: By default, allow all origins (configurable via `ALLOWED_ORIGINS` env var)
+
+### 3. **User Roles & Permissions (RBAC)**
+
+Two role levels:
+
+| Feature | Admin | User |
+|---------|-------|------|
+| Create jobs | ✅ | ❌ |
+| Edit own jobs | ✅ | ✅ (if created by them) |
+| Edit others' jobs | ✅ | ❌ |
+| Run jobs | ✅ | ✅ |
+| View job logs | ✅ | ✅ (own jobs only) |
+| View all metrics | ✅ | ✅ (own jobs only) |
+| Manage users | ✅ | ❌ |
+| Configure SMTP | ✅ | ❌ |
+| View system settings | ✅ | ❌ |
+
+**Authorization checks:**
+- Query jobs filtered by `created_by` for non-admin users
+- Validate user owns the job before allowing edits
+- All endpoints check role before executing sensitive operations
+
+### 4. **Frontend Build Integration**
+
+**Build Process:**
+```bash
+# Backend build
+go build -o taskflow ./cmd/taskflow
+
+# Frontend build (happens separately)
+cd web/frontend && npm run build
+# Outputs to: web/frontend/dist/
+
+# Embed static files in Go binary
+# Use embed.FS to include dist/ files at build time
+```
+
+**Go Binary Integration:**
+```go
+// web/embed.go
+package web
+
+import "embed"
+
+//go:embed frontend/dist/*
+var StaticFS embed.FS
+
+// Router serves embedded frontend
+router.GET("/*filepath", func(c *gin.Context) {
+    // Serve files from StaticFS
+    // SPA fallback: if file not found, serve index.html
+})
+```
+
+**Development Setup:**
+- Backend runs on `:8080`
+- Frontend dev server runs on `:5173` (Vite default)
+- CORS enabled for `localhost:5173` during dev
+
+**Production:**
+- Frontend built and embedded in binary
+- Single artifact deployment
+- No separate frontend server needed
+
+### 5. **Data Retention & Cleanup**
+
+**Log Retention:** 30 days (configurable via `LOG_RETENTION_DAYS`)
+- Runs and logs older than 30 days automatically deleted daily at midnight (UTC)
+- Cleanup triggered by a background job that runs daily
+
+**Metrics Aggregation:**
+- Hourly rollups created at end of each hour
+- Daily rollups created daily at midnight (UTC)
+- Aggregation job runs automatically (not manual)
+
+**Cleanup Implementation:**
+```go
+// CleanupService runs daily
+type CleanupService struct {
+    retentionDays int
+    ticker        *time.Ticker
+}
+
+func (cs *CleanupService) Run(ctx context.Context) {
+    for {
+        select {
+        case <-cs.ticker.C:
+            cs.deleteOldRuns()  // Delete runs > retentionDays
+        case <-ctx.Done():
+            return
+        }
+    }
+}
+```
+
+### 6. **Job Execution & Error Handling**
+
+**Timeout Handling:**
+- Hard kill via `process.Kill()` if timeout exceeded
+- Graceful: Send SIGTERM, wait 5 seconds, then SIGKILL
+- Record as 'timeout' status in database
+- No automatic retry on timeout (separate from retry_count)
+
+**Retry Logic:**
+- Retry only on exit code != 0 (failure)
+- Retries respect `retry_delay_seconds` between attempts
+- Each retry records a new run entry
+- Max retries controlled by `retry_count` field
+
+**Job Script Security:**
+- Execute scripts in subprocess with limited environment
+- Inherit env vars from parent process (configurable whitelist)
+- No shell injection validation needed (bash will handle)
+- Process runs as same user as TaskFlow process
+- **Responsibility:** Admins ensure scripts are safe; no sandboxing
+
+### 7. **Rate Limiting & API Protection**
+
+**Phase 1 Implementation:**
+- No built-in rate limiting (Phase 1)
+- Single-server, self-hosted deployment assumes trusted network
+- Deploy behind reverse proxy (Nginx) with rate limiting for production
+
+**Recommended Rate Limiting Thresholds (when implemented in Phase 2):**
+```
+- /api/auth/login: 5 requests per minute per IP
+- /api/jobs/:id/run: 10 requests per minute per user
+- Other endpoints: 100 requests per minute per user
+- Implementation: Simple in-memory store or Redis
+```
+
+---
+
+## Implementation Approach: Test-Driven Development (TDD)
+
+All implementation follows Test-Driven Development principles:
+
+### Testing Strategy
+
+**Unit Tests:**
+- Database operations (CRUD for jobs, runs, users, etc.)
+- Schedule matching logic (cron-like pattern matching)
+- Timezone conversions
+- JWT token generation/validation
+- Password hashing
+- Configuration parsing
+
+**Integration Tests:**
+- API endpoint tests (with in-memory SQLite)
+- Scheduler trigger tests (mock time, verify jobs execute)
+- WebSocket log streaming
+- Job execution with real shell scripts
+- Metrics collection during job runs
+
+**Test Structure:**
+```
+internal/
+├── api/
+│   ├── handlers/
+│   │   ├── jobs.go
+│   │   ├── jobs_test.go
+│   │   ├── auth.go
+│   │   └── auth_test.go
+│   ├── middleware_test.go
+│   └── router_test.go
+├── scheduler/
+│   ├── matcher.go
+│   ├── matcher_test.go
+│   ├── scheduler.go
+│   └── scheduler_test.go
+├── store/
+│   ├── jobs.go
+│   ├── jobs_test.go
+│   └── ...
+```
+
+**Test Database:**
+- Use in-memory SQLite (`:memory:`) for fast unit/integration tests
+- Each test gets fresh database
+- Migrations run before tests
+
+**Mock Objects:**
+- Mock SMTP mailer for email tests
+- Mock time.Now() for scheduler testing
+- Mock process execution for job execution tests
+
+**Coverage Target:** Minimum 80% coverage for core logic (scheduler, executor, auth, DB operations)
+
+### Development Workflow
+
+1. **Write test first** - Define expected behavior
+2. **Run test** - Watch it fail
+3. **Implement minimum code** - Make test pass
+4. **Refactor** - Improve code quality
+5. **Repeat** for each feature
+
+**Example: Adding a job**
+```go
+// Test first
+func TestCreateJob(t *testing.T) {
+    store := setupTestDB()
+    job := Job{Name: "test", Script: "echo hello"}
+
+    created, err := store.CreateJob(job)
+
+    require.NoError(t, err)
+    require.NotEmpty(t, created.ID)
+    require.Equal(t, "test", created.Name)
+}
+
+// Then implement
+func (s *Store) CreateJob(j Job) (*Job, error) {
+    j.ID = uuid.New().String()
+    _, err := s.db.Exec(...)
+    return &j, err
+}
+```
+
+### Frontend Testing (Vue.js)
+
+**Unit Tests:** Vue components with Vitest + Vue Test Utils
+```javascript
+// components/JobEditor.spec.js
+import { describe, it, expect } from 'vitest'
+import { mount } from '@vue/test-utils'
+import JobEditor from './JobEditor.vue'
+
+describe('JobEditor', () => {
+  it('renders job name input', () => {
+    const wrapper = mount(JobEditor, { props: { job: {...} } })
+    expect(wrapper.find('input[name="name"]').exists()).toBe(true)
+  })
+
+  it('emits save event when form submitted', async () => {
+    const wrapper = mount(JobEditor, { props: { job: {...} } })
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('save')).toBeTruthy()
+  })
+})
+```
+
+**Integration Tests:** API interactions with mock server
+```javascript
+// services/api.spec.js
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createJob, getJobs } from './api.js'
+import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
+
+const server = setupServer(
+  http.post('/api/jobs', () => HttpResponse.json({ id: '123' }))
+)
+
+beforeEach(() => server.listen())
+
+describe('API Service', () => {
+  it('creates a job', async () => {
+    const result = await createJob({ name: 'test' })
+    expect(result.id).toBe('123')
+  })
+})
+```
+
+**E2E Tests:** Playwright for user workflows (Phase 2 - future enhancement)
+
+**Frontend Dependencies:**
+```json
+{
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@vue/test-utils": "^2.4.0",
+    "@testing-library/vue": "^8.0.0",
+    "msw": "^2.0.0",
+    "@vitejs/plugin-vue": "^5.0.0"
+  }
+}
+```
+
+### Implementation Readiness Checklist
+
+✅ **Critical Details Clarified:**
+- [x] Job execution model (sequential, single worker)
+- [x] First-user bootstrap flow (setup endpoint)
+- [x] User roles & permissions matrix (admin/user with exact features)
+- [x] Frontend build integration (embed.FS, Vite output)
+- [x] Data retention & cleanup strategy (30 days, hourly/daily aggregation)
+- [x] Error handling & retry logic (timeout, retries)
+- [x] Job script execution security (no sandboxing, admin responsibility)
+- [x] Testing approach (TDD for all features)
+
+✅ **Ready for Implementation:**
+- Architecture is complete
+- Database schema is defined
+- API endpoints are listed
+- UI wireframes provide clear targets
+- Deployment options are detailed
+- Testing strategy is established
+- Configuration approach is specified
+- Role-based access control is defined
+
+**Next Steps:**
+1. Initialize Go project structure
+2. Set up SQLite migrations framework
+3. Write tests for core scheduler logic
+4. Implement auth (JWT + bootstrap)
+5. Build API handlers (test-first)
+6. Create Vue.js + Vite frontend project
+7. Integrate frontend build into Go binary
+8. Test end-to-end deployment
+
+---
+
+## Database Schema (SQLite)
+
+```sql
+-- Users table
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,  -- bcrypt
+    email TEXT,
+    role TEXT DEFAULT 'user',     -- 'admin' or 'user'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login DATETIME
+);
+
+-- Jobs definition
+CREATE TABLE jobs (
+    id TEXT PRIMARY KEY,          -- UUID
+    name TEXT NOT NULL,
+    description TEXT,
+    script TEXT NOT NULL,         -- Shell script content
+    working_dir TEXT DEFAULT '/tmp',
+    timeout_seconds INTEGER DEFAULT 3600,
+    retry_count INTEGER DEFAULT 0,
+    retry_delay_seconds INTEGER DEFAULT 60,
+    enabled BOOLEAN DEFAULT true,
+    notify_emails TEXT,           -- Comma-separated
+    notify_on TEXT DEFAULT 'failure', -- 'always', 'failure', 'success'
+    timezone TEXT DEFAULT 'UTC',
+    created_by INTEGER REFERENCES users(id),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Cron-like schedule (multi-select approach)
+CREATE TABLE schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id TEXT REFERENCES jobs(id) ON DELETE CASCADE,
+    years TEXT,      -- JSON array: [2024, 2025] or null for "any"
+    months TEXT,     -- JSON array: [1,6,12] or null for "any"
+    days TEXT,       -- JSON array: [1,15,28] or null for "any"
+    weekdays TEXT,   -- JSON array: [0,1,2,3,4] (0=Sunday) or null
+    hours TEXT,      -- JSON array: [9,12,17] or null for "any"
+    minutes TEXT,    -- JSON array: [0,30] or null for "any"
+    UNIQUE(job_id)
+);
+
+-- Job execution history
+CREATE TABLE runs (
+    id TEXT PRIMARY KEY,          -- UUID
+    job_id TEXT REFERENCES jobs(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,         -- 'pending', 'running', 'success', 'failure', 'timeout', 'cancelled'
+    exit_code INTEGER,
+    trigger_type TEXT,            -- 'scheduled', 'manual'
+    started_at DATETIME,
+    finished_at DATETIME,
+    duration_ms INTEGER,
+    error_message TEXT
+);
+
+-- Execution logs (streamed)
+CREATE TABLE logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT REFERENCES runs(id) ON DELETE CASCADE,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    stream TEXT,                  -- 'stdout', 'stderr', 'system'
+    content TEXT
+);
+
+-- Resource metrics (sampled every N seconds during execution)
+CREATE TABLE metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT REFERENCES runs(id) ON DELETE CASCADE,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    cpu_percent REAL,
+    memory_bytes INTEGER,
+    memory_percent REAL
+);
+
+-- Aggregated metrics for trending (hourly/daily rollups)
+CREATE TABLE metrics_aggregate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id TEXT REFERENCES jobs(id) ON DELETE CASCADE,
+    period_type TEXT,             -- 'hourly', 'daily'
+    period_start DATETIME,
+    run_count INTEGER,
+    avg_duration_ms INTEGER,
+    avg_cpu_percent REAL,
+    avg_memory_bytes INTEGER,
+    max_cpu_percent REAL,
+    max_memory_bytes INTEGER,
+    success_count INTEGER,
+    failure_count INTEGER
+);
+
+-- Application settings
+CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_runs_job_id ON runs(job_id);
+CREATE INDEX idx_runs_started_at ON runs(started_at);
+CREATE INDEX idx_logs_run_id ON logs(run_id);
+CREATE INDEX idx_metrics_run_id ON metrics(run_id);
+CREATE INDEX idx_metrics_aggregate_job_period ON metrics_aggregate(job_id, period_type, period_start);
+```
+
+---
+
+## Go Project Structure
+
+```
+taskflow/
+├── cmd/
+│   └── taskflow/
+│       └── main.go              # Entry point
+├── internal/
+│   ├── api/
+│   │   ├── router.go            # HTTP routes
+│   │   ├── middleware.go        # Auth, logging, CORS
+│   │   ├── handlers/
+│   │   │   ├── auth.go          # Login, logout, user mgmt
+│   │   │   ├── jobs.go          # CRUD for jobs
+│   │   │   ├── runs.go          # Execution history
+│   │   │   ├── logs.go          # Log streaming (WebSocket)
+│   │   │   ├── metrics.go       # Resource graphs
+│   │   │   ├── settings.go      # SMTP config, etc.
+│   │   │   └── dashboard.go     # Stats & overview
+│   │   └── websocket.go         # WebSocket hub
+│   ├── auth/
+│   │   ├── jwt.go               # Token generation/validation
+│   │   └── password.go          # Bcrypt hashing
+│   ├── scheduler/
+│   │   ├── scheduler.go         # Main scheduler loop
+│   │   ├── matcher.go           # Cron-like time matching
+│   │   └── queue.go             # Job queue management
+│   ├── executor/
+│   │   ├── executor.go          # Shell script runner
+│   │   ├── process.go           # Process management
+│   │   └── monitor.go           # CPU/memory tracking
+│   ├── mailer/
+│   │   └── smtp.go              # Email notifications
+│   ├── timezone/
+│   │   └── timezone.go          # TZ detection & conversion
+│   ├── store/
+│   │   ├── sqlite.go            # Database connection
+│   │   ├── migrations.go        # Schema migrations
+│   │   ├── users.go
+│   │   ├── jobs.go
+│   │   ├── runs.go
+│   │   ├── logs.go
+│   │   ├── metrics.go
+│   │   └── settings.go
+│   └── config/
+│       └── config.go            # App configuration
+├── web/
+│   ├── embed.go                 # Embed frontend static files
+│   └── frontend/                # Vue.js + Vite SPA
+│       ├── src/
+│       │   ├── components/      # Vue components
+│       │   ├── stores/          # Pinia stores
+│       │   ├── services/        # API client
+│       │   ├── views/           # Page views
+│       │   ├── assets/          # Images, fonts
+│       │   ├── App.vue
+│       │   └── main.js
+│       ├── dist/                # Built output (generated)
+│       ├── vite.config.js
+│       ├── package.json
+│       └── index.html
+├── scripts/
+│   └── examples/                # Example task scripts
+├── go.mod
+├── go.sum
+├── Makefile
+├── Dockerfile
+└── README.md
+```
+
+---
+
+## Key Design Decisions
+
+### 1. **Frontend Implementation**
+
+**Use Vue.js 3 + Vite with Pinia state management and TailwindCSS**
+
+**Frontend Structure:**
+```
+web/frontend/
+├── src/
+│   ├── components/      # Vue components
+│   ├── stores/          # Pinia state management
+│   ├── services/        # API client
+│   ├── views/           # Page components
+│   ├── App.vue
+│   └── main.js
+├── vite.config.js
+├── package.json
+└── index.html
+```
+
+**Build Process:**
+1. Run `npm run build` in `web/frontend/`
+2. Outputs to `web/frontend/dist/`
+3. Go backend embeds dist/ files using `embed.FS`
+4. Single binary contains frontend and backend
+
+### 2. **Schedule Multi-Selector Format**
+
+Store as JSON arrays, match like cron:
+
+```go
+type Schedule struct {
+    Years    []int `json:"years"`    // nil = any
+    Months   []int `json:"months"`   // 1-12
+    Days     []int `json:"days"`     // 1-31
+    Weekdays []int `json:"weekdays"` // 0-6 (Sun-Sat)
+    Hours    []int `json:"hours"`    // 0-23
+    Minutes  []int `json:"minutes"`  // 0-59
+}
+
+// Matches checks if the given time matches the schedule
+func (s *Schedule) Matches(t time.Time) bool {
+    return s.matchesField(s.Years, t.Year()) &&
+           s.matchesField(s.Months, int(t.Month())) &&
+           s.matchesField(s.Days, t.Day()) &&
+           s.matchesField(s.Weekdays, int(t.Weekday())) &&
+           s.matchesField(s.Hours, t.Hour()) &&
+           s.matchesField(s.Minutes, t.Minute())
+}
+
+func (s *Schedule) matchesField(allowed []int, value int) bool {
+    if allowed == nil || len(allowed) == 0 {
+        return true // nil means "any"
+    }
+    for _, v := range allowed {
+        if v == value {
+            return true
+        }
+    }
+    return false
+}
+```
+
+### 3. **Resource Monitoring**
+
+Use `/proc` on Linux (cross-platform fallback for others):
+
+```go
+type ResourceMonitor struct {
+    pid      int
+    interval time.Duration
+    metrics  chan Metric
+    done     chan struct{}
+}
+
+func (m *ResourceMonitor) Start() {
+    ticker := time.NewTicker(m.interval)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ticker.C:
+            cpu, mem := m.sample()
+            m.metrics <- Metric{
+                Timestamp:     time.Now(),
+                CPUPercent:    cpu,
+                MemoryBytes:   mem,
+            }
+        case <-m.done:
+            return
+        }
+    }
+}
+
+func (m *ResourceMonitor) sample() (float64, int64) {
+    // Read from /proc/{pid}/stat for CPU
+    // Read from /proc/{pid}/statm for memory
+    // Or use gopsutil for cross-platform
+}
+```
+
+**Library recommendation:** Use `github.com/shirou/gopsutil` for cross-platform resource monitoring.
+
+### 4. **Live Log Streaming**
+
+```go
+// WebSocket hub for broadcasting logs
+type LogHub struct {
+    clients    map[string]map[*websocket.Conn]bool // runID -> connections
+    broadcast  chan LogEntry
+    register   chan *LogSubscription
+    unregister chan *LogSubscription
+    mu         sync.RWMutex
+}
+
+func (h *LogHub) Run() {
+    for {
+        select {
+        case sub := <-h.register:
+            h.mu.Lock()
+            if h.clients[sub.RunID] == nil {
+                h.clients[sub.RunID] = make(map[*websocket.Conn]bool)
+            }
+            h.clients[sub.RunID][sub.Conn] = true
+            h.mu.Unlock()
+            
+        case entry := <-h.broadcast:
+            h.mu.RLock()
+            for conn := range h.clients[entry.RunID] {
+                conn.WriteJSON(entry)
+            }
+            h.mu.RUnlock()
+        }
+    }
+}
+```
+
+### 5. **Timezone Handling**
+
+```go
+// Server timezone (auto-detected)
+var serverTZ = time.Local
+
+// Get server timezone info
+func GetServerTimezone() TimezoneInfo {
+    name, offset := time.Now().Zone()
+    return TimezoneInfo{
+        Name:   name,
+        Offset: offset,
+        IANA:   getIANAName(), // e.g., "America/New_York"
+    }
+}
+
+// Convert job schedule time to server time for execution
+func ConvertToServerTime(t time.Time, jobTZ string) (time.Time, error) {
+    loc, err := time.LoadLocation(jobTZ)
+    if err != nil {
+        return time.Time{}, err
+    }
+    // The schedule is defined in jobTZ, convert to server local
+    return t.In(loc).In(serverTZ), nil
+}
+```
+
+Frontend sends browser timezone via JS:
+```javascript
+const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// Send to server, display times in user's TZ
+```
+
+---
+
+## API Endpoints & Response Formats
+
+### Endpoint Specifications
+
+```
+Authentication:
+  POST   /api/auth/login          # Login, get JWT
+  POST   /api/auth/logout         # Invalidate token
+  GET    /api/auth/me             # Current user info
+  GET    /setup/status            # Bootstrap: check if setup needed
+  POST   /setup/admin             # Bootstrap: create first admin
+
+Users (admin only):
+  GET    /api/users               # List users
+  POST   /api/users               # Create user
+  PUT    /api/users/:id           # Update user
+  DELETE /api/users/:id           # Delete user
+
+Jobs:
+  GET    /api/jobs                # List all jobs
+  POST   /api/jobs                # Create job
+  GET    /api/jobs/:id            # Get job details
+  PUT    /api/jobs/:id            # Update job
+  DELETE /api/jobs/:id            # Delete job
+  POST   /api/jobs/:id/run        # Trigger manual run
+  POST   /api/jobs/:id/enable     # Enable job
+  POST   /api/jobs/:id/disable    # Disable job
+
+Runs:
+  GET    /api/runs                # List runs (with filters)
+  GET    /api/runs/:id            # Get run details
+  POST   /api/runs/:id/cancel     # Cancel running job
+  GET    /api/runs/:id/logs       # Get logs (HTTP)
+  WS     /api/runs/:id/logs/live  # Stream logs (WebSocket)
+
+Metrics:
+  GET    /api/jobs/:id/metrics    # Historical metrics for job
+  GET    /api/runs/:id/metrics    # Metrics for specific run
+  GET    /api/dashboard/stats     # Overall system stats
+
+Settings:
+  GET    /api/settings/smtp       # Get SMTP config
+  PUT    /api/settings/smtp       # Update SMTP config
+  POST   /api/settings/smtp/test  # Send test email
+  GET    /api/settings/timezone   # Get server timezone
+
+Timezones:
+  GET    /api/timezones           # List all timezones
+
+Health:
+  GET    /health                  # Health check (200 if healthy)
+```
+
+### Standard Response Format
+
+**Success Response (2xx):**
+```json
+{
+  "data": {},           // Response payload
+  "status": "success"
+}
+```
+
+**Error Response (4xx, 5xx):**
+```json
+{
+  "error": "descriptive message",
+  "code": "ERROR_CODE",
+  "details": null       // optional, for validation errors
+}
+```
+
+**Error Codes:**
+```
+INVALID_CREDENTIALS      - Login failed
+INVALID_TOKEN           - JWT validation failed
+UNAUTHORIZED            - Insufficient permissions
+NOT_FOUND              - Resource not found
+VALIDATION_ERROR       - Request validation failed
+CONFLICT               - Resource already exists
+INTERNAL_ERROR         - Server error
+```
+
+### Example Responses
+
+**GET /api/jobs**
+```json
+{
+  "data": {
+    "jobs": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "backup-db",
+        "description": "Daily database backup",
+        "enabled": true,
+        "timeout_seconds": 3600,
+        "retry_count": 3,
+        "nextRun": "2026-01-07T03:00:00Z",
+        "lastRun": "2026-01-06T03:00:00Z",
+        "createdBy": "admin",
+        "createdAt": "2026-01-01T10:00:00Z"
+      }
+    ],
+    "total": 42
+  },
+  "status": "success"
+}
+```
+
+**POST /api/jobs/:id/run**
+```json
+{
+  "data": {
+    "runId": "650e8400-e29b-41d4-a716-446655440000",
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "pending",
+    "triggeredAt": "2026-01-06T10:30:00Z"
+  },
+  "status": "success"
+}
+```
+
+**GET /api/dashboard/stats**
+```json
+{
+  "data": {
+    "activeJobs": 12,
+    "runningNow": 1,
+    "successRate": 0.942,
+    "totalFailures": 2,
+    "averageDuration": 154000,
+    "uptime": 864000000
+  },
+  "status": "success"
+}
+```
+
+### WebSocket Message Format
+
+**Log Stream Messages (WS /api/runs/:id/logs/live):**
+
+```json
+{
+  "type": "log",
+  "runId": "650e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-01-06T03:00:12Z",
+  "stream": "stdout",
+  "content": "[03:00:12] Starting database dump...",
+  "lineNumber": 42
+}
+```
+
+**Metrics Messages (sent periodically during execution):**
+
+```json
+{
+  "type": "metric",
+  "runId": "650e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-01-06T03:00:15Z",
+  "cpuPercent": 78.5,
+  "memoryBytes": 256000000,
+  "memoryPercent": 25.0
+}
+```
+
+**Status Messages:**
+
+```json
+{
+  "type": "status",
+  "runId": "650e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2026-01-06T03:01:34Z",
+  "status": "success",
+  "exitCode": 0,
+  "duration": 82000
+}
+```
+
+### Resource Metrics Sampling
+
+**Sampling Rate:** Every 2 seconds during job execution
+- Metrics stored in `metrics` table
+- One row per sample
+- Used for real-time display and historical trending
+- Hourly/daily aggregates created separately
+
+---
+
+## UI Components
+
+**Key Pages:**
+1. **Dashboard** - KPIs (active jobs, running, success rate), recent runs table, upcoming jobs
+2. **Job Editor** - Name, script editor, timeout/retry config, cron-like multi-selector (years/months/days/hours/minutes), notifications
+3. **Live Log Viewer** - Real-time stdout/stderr output via WebSocket, live CPU/memory metrics, status indicator
+4. **Metrics Dashboard** - Historical CPU/memory trends (7d/30d/90d), success/failure rates
+
+---
+
+## Deployment
+
+### Native Binary Installation (Primary Method)
+
+**Concept:** Run TaskFlow as a native Go binary directly on the system, with scripts executing in the host environment.
+
+#### Advantages
+✅ **No container overhead** - Lower memory/CPU usage
+✅ **Direct system access** - Scripts run with full host permissions
+✅ **Easier debugging** - Direct access to logs, processes
+✅ **Simpler setup** - Just download binary, configure env vars, run
+✅ **Better for development** - Faster iteration, easier testing
+✅ **Cost-effective** - Single lightweight process
+
+#### Installation Steps
+
+**1. Build the Binary**
+```bash
+# Clone repository
+git clone <repo-url> taskflow
+cd taskflow
+
+# Build backend
+go build -o bin/taskflow ./cmd/taskflow
+
+# Build frontend
+cd web/frontend
+npm install
+npm run build
+cd ../..
+
+# Binary ready: ./bin/taskflow
+```
+
+**2. Create Data Directory**
+```bash
+mkdir -p /opt/taskflow/data
+mkdir -p /opt/taskflow/logs
+```
+
+**3. Configure Environment**
+```bash
+# Create .env file or export variables
+export PORT=8080
+export DB_PATH=/opt/taskflow/data/taskflow.db
+export JWT_SECRET=$(openssl rand -hex 32)
+export LOG_LEVEL=info
+
+# Optional: SMTP
+export SMTP_SERVER=smtp.example.com
+export SMTP_PORT=587
+export SMTP_USERNAME=noreply@example.com
+export SMTP_PASSWORD=secret
+```
+
+**4. Run the Application**
+```bash
+cd /opt/taskflow
+./bin/taskflow
+
+# Output:
+# 2026/01/06 10:30:00 Starting TaskFlow on :8080
+# 2026/01/06 10:30:00 Database initialized: /opt/taskflow/data/taskflow.db
+# 2026/01/06 10:30:00 Ready to accept connections
+```
+
+**5. Access Web UI**
+```
+http://localhost:8080
+```
+
+#### CLI Command Support
+
+**TaskFlow provides built-in commands for easy management:**
+
+```bash
+# Start the service (foreground)
+taskflow run
+
+# Start as daemon (background)
+taskflow start
+
+# Stop the service
+taskflow stop
+
+# Restart the service
+taskflow restart
+
+# Check service status
+taskflow status
+
+# Health check
+taskflow health
+
+# View version
+taskflow version
+
+# Show help
+taskflow help
+taskflow help start
+```
+
+**Implementation:**
+
+Binary supports flags and subcommands:
+```bash
+taskflow [command] [flags]
+
+Commands:
+  run       Start TaskFlow in foreground (default)
+  start     Start as daemon process
+  stop      Stop running daemon
+  restart   Restart daemon
+  status    Show daemon status
+  health    Check health endpoint
+  version   Show version info
+  config    Manage configuration
+  migrate   Run database migrations
+  help      Show help
+
+Flags:
+  --port          HTTP port (default: 8080)
+  --db-path       Database file path
+  --config        Config file path
+  --log-level     Log level: debug, info, warn, error
+  --no-color      Disable colored output
+  --version       Show version
+```
+
+**Service Management Examples:**
+
+```bash
+# Run in foreground (for development)
+taskflow run --log-level debug
+
+# Start as background service
+taskflow start --port 9000
+
+# Check if running
+taskflow status
+
+# Graceful shutdown
+taskflow stop
+
+# Restart without downtime
+taskflow restart
+
+# Health check (returns exit code 0 if healthy)
+taskflow health
+echo $?  # Prints 0 if healthy
+
+# View logs (stores in ~/.taskflow/logs/ by default)
+tail -f ~/.taskflow/logs/taskflow.log
+```
+
+**PID Management:**
+- Daemon stores PID in `~/.taskflow/taskflow.pid` (or `/var/run/taskflow.pid` if sudo)
+- `stop` and `restart` use PID file to identify process
+- Graceful shutdown: SIGTERM with 10s timeout, then SIGKILL if needed
+
+**Configuration:**
+```bash
+# Config priority (highest to lowest):
+# 1. Command-line flags
+# 2. Environment variables (TASKFLOW_*)
+# 3. Config file (~/.taskflow/config.yml or /etc/taskflow/taskflow.env)
+# 4. Defaults
+
+taskflow run --db-path /custom/path
+TASKFLOW_DB_PATH=/custom/path taskflow run
+```
+
+#### Systemd Service (Auto-Start on Boot)
+
+**Create systemd service file: `/etc/systemd/system/taskflow.service`**
+```ini
+[Unit]
+Description=TaskFlow - Task Scheduler & Runner
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=taskflow
+Group=taskflow
+WorkingDirectory=/opt/taskflow
+
+# Environment file
+EnvironmentFile=/opt/taskflow/.env
+
+# Executable
+ExecStart=/opt/taskflow/bin/taskflow
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Process management
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=taskflow
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Setup and Enable**
+```bash
+# Create taskflow user
+sudo useradd -r -s /bin/false taskflow
+
+# Set permissions
+sudo chown -R taskflow:taskflow /opt/taskflow
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable and start service
+sudo systemctl enable taskflow
+sudo systemctl start taskflow
+
+# Check status
+sudo systemctl status taskflow
+
+# View logs
+sudo journalctl -u taskflow -f
+```
+
+#### Reverse Proxy Setup (Production Requirement)
+
+For production deployments, place TaskFlow behind Nginx or Apache for HTTPS, rate limiting, and request protection. Example Nginx configuration is provided in the deployment documentation.
+
+#### Data Backup
+
+Daily automated backups via cron: `0 2 * * * cp /opt/taskflow/data/taskflow.db /backups/taskflow-$(date +\%Y\%m\%d).db.gz`
+30-day retention, WAL checkpoint for consistency. See backup-restore docs.
+
+#### Updating the Application
+
+```bash
+# Stop service
+sudo systemctl stop taskflow
+
+# Backup database
+cp /opt/taskflow/data/taskflow.db /opt/taskflow/data/taskflow.db.backup
+
+# Download and build new version
+cd /tmp && git clone <repo-url> taskflow-new
+cd taskflow-new
+go build -o /opt/taskflow/bin/taskflow ./cmd/taskflow
+cd /opt/taskflow/web/frontend && npm install && npm run build
+
+# Start service
+sudo systemctl start taskflow
+
+# Verify
+sudo systemctl status taskflow
+```
+
+---
+
+## CLI Command Reference
+
+Use these commands to manage TaskFlow:
+
+```bash
+taskflow run              # Start in foreground (development)
+taskflow start            # Start as daemon (production)
+taskflow stop             # Stop the service
+taskflow restart          # Restart the service
+taskflow status           # Check if running
+taskflow health           # Health check
+taskflow version          # Show version
+taskflow help             # Show help
+```
+
+---
+
+## Dependency & Library Philosophy
+
+### Core Principle: Use Standard Library First
+
+**Always prefer Go standard library** for:
+- HTTP server & routing basics (`net/http`)
+- JSON encoding/decoding (`encoding/json`)
+- Time & date operations (`time`)
+- Database/SQL interface (`database/sql`)
+- Cryptography (`crypto/*`, `golang.org/x/crypto`)
+- Regular expressions (`regexp`)
+- File I/O (`io`, `os`)
+- Process management (`os/exec`)
+- Logging (structured logging via `slog` or simple `log`)
+- Concurrency primitives (`sync`, channels, goroutines)
+
+**Add third-party libraries only when**:
+1. Standard library solution is insufficient
+2. Library is well-maintained (500+ GitHub stars, active commits)
+3. Library has minimal dependencies
+4. Team is familiar with the library
+5. Alternative: feature parity vs complexity trade-off favors the library
+
+**Avoid:**
+- Reinventing existing stdlib functionality
+- Single-maintainer packages
+- Packages with many transitive dependencies
+- Packages that haven't been updated in 2+ years
+
+### Library Selection Criteria
+
+| Need | Choice | Rationale |
+|------|--------|-----------|
+| HTTP Server | `net/http` | Built-in, battle-tested |
+| HTTP Routing | `net/http` with `ServeMux` | Sufficient for REST API |
+| JSON | `encoding/json` | Part of stdlib |
+| Database | `database/sql` + `mattn/go-sqlite3` | Std interface, minimal driver |
+| JWT | `golang-jwt/jwt/v5` | Standard choice, well-maintained |
+| Crypto/Hash | `golang.org/x/crypto` | Official Go team package |
+| WebSocket | `gorilla/websocket` | Standard library deficiency, well-tested |
+| Process Monitor | `github.com/shirou/gopsutil` | Cross-platform, actively maintained |
+| Email/SMTP | stdlib `net/smtp` for sending | Built-in, sufficient |
+| Testing | `testing` + `testify/assert` | Stdlib core, minimal external |
+
+---
+
+## Key Dependencies (Go & Frontend)
+
+### Go Backend
+
+```go
+// go.mod
+module github.com/yourname/taskflow
+
+go 1.22
+
+require (
+    // === HTTP & Server (stdlib core, minimal additions) ===
+    // net/http - included in stdlib
+    // net/http/httptest - included in stdlib
+
+    // === Database ===
+    github.com/mattn/go-sqlite3 v1.14.22      // SQLite driver (ONLY external DB lib needed)
+
+    // === Authentication & Security (stdlib + official Go packages) ===
+    golang.org/x/crypto v0.18.0               // bcrypt, password hashing (official Go)
+    github.com/golang-jwt/jwt/v5 v5.2.0       // JWT generation/validation (standard choice)
+
+    // === JSON & Encoding (stdlib handles it) ===
+    // encoding/json - included in stdlib
+    // encoding/base64 - included in stdlib
+
+    // === WebSocket (stdlib gap, this is justified) ===
+    github.com/gorilla/websocket v1.5.1       // WebSocket (no stdlib alternative)
+
+    // === System Monitoring (cross-platform) ===
+    github.com/shirou/gopsutil/v3 v3.24.1     // Process/system metrics (well-maintained)
+
+    // === Testing ===
+    github.com/stretchr/testify v1.8.4        // Assertions (minimal, widely used)
+
+    // === Utilities ===
+    github.com/google/uuid v1.6.0              // UUID generation (small, stable)
+)
+```
+
+### Why NOT in Dependencies
+
+**EXCLUDED (use stdlib instead):**
+- ❌ Logger framework - use `log` or `slog` (Go 1.21+)
+- ❌ HTTP router (complex) - use `net/http.ServeMux`
+- ❌ SMTP client - use stdlib `net/smtp`
+- ❌ JSON utilities - use stdlib `encoding/json`
+- ❌ Config management - use stdlib `flag` or environment variables
+- ❌ YAML parsing - use stdlib `encoding/json` with env vars
+
+**JUSTIFICATIONS for included:**
+- `gin-gonic/gin` ❌ REMOVED - use `net/http` instead (see simplified below)
+- `gorilla/websocket` ✅ KEPT - stdlib `net/http` lacks WebSocket support
+- `shirou/gopsutil` ✅ KEPT - cross-platform process monitoring
+- `golang-jwt/jwt` ✅ KEPT - JWT is standard auth, well-maintained
+- `golang.org/x/crypto` ✅ KEPT - official Go, bcrypt not in stdlib
+
+### Simplified Go Dependencies (Recommended)
+
+```go
+// go.mod - Minimalist approach
+module github.com/yourname/taskflow
+
+go 1.22
+
+require (
+    github.com/mattn/go-sqlite3 v1.14.22      // SQLite driver only
+    golang.org/x/crypto v0.18.0               // bcrypt (official)
+    github.com/golang-jwt/jwt/v5 v5.2.0       // JWT (standard choice)
+    github.com/gorilla/websocket v1.5.1       // WebSocket (no stdlib alternative)
+    github.com/shirou/gopsutil/v3 v3.24.1     // Process monitoring
+    github.com/google/uuid v1.6.0              // UUID generation
+    github.com/stretchr/testify v1.8.4        // Testing assertions (minimal)
+)
+
+// Stdlib packages used (no import needed):
+// - net/http, net/http/httptest
+// - database/sql
+// - encoding/json, encoding/base64
+// - crypto/sha256, crypto/rand
+// - time, os, os/exec
+// - sync, context
+// - flag (config)
+// - log or slog (logging)
+// - testing, regexp, io
+```
+
+### HTTP Server Implementation (No Framework)
+
+Use stdlib `net/http` with minimal helper:
+
+```go
+// internal/api/router.go
+package api
+
+import (
+    "net/http"
+)
+
+func NewRouter() *http.ServeMux {
+    mux := http.NewServeMux()
+
+    // Auth endpoints
+    mux.HandleFunc("POST /api/auth/login", handleLogin)
+    mux.HandleFunc("POST /api/auth/logout", handleLogout)
+    mux.HandleFunc("GET /api/auth/me", authMiddleware(handleMe))
+
+    // Jobs endpoints
+    mux.HandleFunc("GET /api/jobs", authMiddleware(handleListJobs))
+    mux.HandleFunc("POST /api/jobs", authMiddleware(handleCreateJob))
+    mux.HandleFunc("PUT /api/jobs/{id}", authMiddleware(handleUpdateJob))
+
+    // WebSocket logs
+    mux.HandleFunc("GET /api/runs/{id}/logs/live", authMiddleware(handleLogsWebSocket))
+
+    // Static files (SPA)
+    mux.Handle("GET /", http.FileServer(http.FS(StaticFS)))
+
+    return mux
+}
+
+// Middleware pattern (composable)
+func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        token := extractToken(r)
+        if !validateToken(token) {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        next(w, r)
+    }
+}
+```
+
+### Frontend Dependencies (Vue.js + Vite)
+
+```json
+{
+  "name": "taskflow-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "pinia": "^2.1.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@vue/test-utils": "^2.4.0",
+    "@testing-library/vue": "^8.0.0",
+    "msw": "^2.0.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
+  }
+}
+```
+
+### Frontend Stack
+
+| Package | Purpose | Rationale |
+|---------|---------|-----------|
+| `vue@3` | Frontend framework | Lightweight, reactive components |
+| `pinia` | State management | Minimal, modern Vuex replacement |
+| `axios` | HTTP client | Request interceptor support, promise-based |
+| `vite` | Build tool | Fast development builds and HMR |
+| `tailwindcss` | CSS styling | Utility-first, minimal bundle overhead |
+| `vitest` | Unit testing | Fast, ES modules native, Vue integration |
+
+### Adding New Dependencies
+
+**Before adding any library:**
+
+```
+1. Check if stdlib solves it:
+   - HTTP handling? → net/http
+   - Logging? → log or slog
+   - Errors? → errors, fmt
+   - Time? → time
+
+2. Search github.com for alternatives
+   - Check: stars (>500), last commit (<6mo), issues closed rate
+
+3. Import once:
+   - Add to go.mod / package.json
+   - Document WHY it was added (comment in code)
+   - Link to GitHub repo
+
+4. Audit transitive deps:
+   - Run: go mod graph | wc -l (keep <20)
+   - Run: npm ls (check depth)
+```
+
+**Recommended:** Use stdlib `slog` for structured logging instead of frameworks like logrus or winston.
+
+**Excluded:** GORM (use `database/sql`), Echo/Fiber (use `net/http.ServeMux`), Logrus (use `slog`), Validator (hand-write), bcryptjs (handle in backend)
+
+---
