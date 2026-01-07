@@ -7,21 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-07
+
 ### Changed
-- Refactored API handlers to apply SOLID principles and Clean Code standards
-  - Extracted JobValidator abstraction for centralized validation logic
-  - Eliminated 140+ lines of duplicate validation code across CreateJob and UpdateJob
-  - Reduced average handler method size by 60% through separation of concerns
-  - Simplified SetJobSchedule with consistent schedule validation
-- Enhanced scheduler with public Enqueue() method for manual job triggering
+- Redesigned jobs listing interface from card grid to data table
+  - Replaced JobCard component with table-based layout for better information density
+  - Added visible columns for job metadata (name, description, status, timeout, retries, created date)
+  - Improved discoverability of job details without requiring modal/detail view navigation
+  - Refined login page styling with improved visual hierarchy (reduced border weight)
+- Fixed API response data parsing in frontend services
+  - jobs.js: Updated to extract jobs from response.data.data.jobs
+  - runs.js: Updated to extract runs from response.data.data.runs and logs from response.data.data.logs
+- Updated font stack for improved readability
+  - Added Source Code Pro Google Font integration
+  - Refined typography across all pages
 
 ### Added
-- JobValidator type in internal/api/validator.go:
-  - Centralized job request validation with ValidateJobRequest()
-  - Centralized schedule validation with ValidateScheduleRequest()
-  - Default value application with ApplyDefaults()
-  - Clean request-to-model conversion with ToJobModel()
-- Comprehensive test coverage for validation logic:
+- New StatusBadge component for consistent job status display
+- Date formatting helper in JobsView for consistent date representation
+- Preconnect directives in index.html for Google Fonts optimization
+- Table styling with proper column widths and hover states
+
+### Fixed
+- Schedule field name mismatches between API and frontend (days_of_month → days, days_of_week → weekdays)
+- Modal overlay styling (removed opacity for cleaner appearance)
+
+### Refactored API handlers to apply SOLID principles and Clean Code standards
+- Extracted JobValidator abstraction for centralized validation logic
+- Eliminated 140+ lines of duplicate validation code across CreateJob and UpdateJob
+- Reduced average handler method size by 60% through separation of concerns
+- Simplified SetJobSchedule with consistent schedule validation
+- Enhanced scheduler with public Enqueue() method for manual job triggering
+
+### Test Coverage
+- Added comprehensive test coverage for validation logic:
   - 4 new test functions with 31+ new assertions
   - 100% code coverage for JobValidator
   - Tests for happy path, error cases, and edge cases
