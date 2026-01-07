@@ -1,275 +1,218 @@
-<template>
-  <div id="app">
-    <header>
-      <h1>TaskFlow</h1>
-      <nav v-if="isLoggedIn">
-        <router-link to="/">Dashboard</router-link>
-        <router-link to="/jobs">Jobs</router-link>
-        <button @click="logout">Logout</button>
-      </nav>
-    </header>
-
-    <main>
-      <div v-if="!isLoggedIn" class="login-container">
-        <h2>Login</h2>
-        <form @submit.prevent="handleLogin">
-          <input
-            v-model="loginForm.username"
-            type="text"
-            placeholder="Username"
-            required
-          />
-          <input
-            v-model="loginForm.password"
-            type="password"
-            placeholder="Password"
-            required
-          />
-          <button type="submit">Login</button>
-          <p v-if="loginError" class="error">{{ loginError }}</p>
-        </form>
-
-        <div v-if="showSetupForm">
-          <h3>First Time Setup</h3>
-          <form @submit.prevent="handleSetup">
-            <input
-              v-model="setupForm.username"
-              type="text"
-              placeholder="Admin Username"
-              required
-            />
-            <input
-              v-model="setupForm.password"
-              type="password"
-              placeholder="Admin Password"
-              required
-            />
-            <input
-              v-model="setupForm.email"
-              type="email"
-              placeholder="Email (optional)"
-            />
-            <button type="submit">Create Admin Account</button>
-            <p v-if="setupError" class="error">{{ setupError }}</p>
-          </form>
-        </div>
-      </div>
-
-      <div v-else class="dashboard">
-        <h2>Dashboard</h2>
-        <p>Welcome, {{ currentUser?.username }}!</p>
-        <div class="stats">
-          <div class="stat">
-            <h3>Active Jobs</h3>
-            <p>{{ stats.activeJobs || 0 }}</p>
-          </div>
-          <div class="stat">
-            <h3>Success Rate</h3>
-            <p>{{ (stats.successRate * 100).toFixed(1) }}%</p>
-          </div>
-          <div class="stat">
-            <h3>Running Now</h3>
-            <p>{{ stats.runningNow || 0 }}</p>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+import LoginView from './views/LoginView.vue'
 
-const isLoggedIn = ref(false)
-const currentUser = ref(null)
-const showSetupForm = ref(false)
-const loginForm = ref({ username: '', password: '' })
-const setupForm = ref({ username: '', password: '', email: '' })
-const loginError = ref('')
-const setupError = ref('')
-const stats = ref({
-  activeJobs: 0,
-  successRate: 0,
-  runningNow: 0
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+
+const isAuthenticated = computed(() => authStore.isAuthenticated)
+const currentUser = computed(() => authStore.user)
+
+// Initialize auth state on mount
+onMounted(() => {
+  authStore.initialize()
 })
 
-const api = axios.create({
-  baseURL: '/',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Add token to requests
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-onMounted(async () => {
-  // Check if user is logged in
-  const token = localStorage.getItem('token')
-  if (token) {
-    isLoggedIn.value = true
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    currentUser.value = user
-  } else {
-    // Check if setup is needed
-    try {
-      const response = await api.get('/setup/status')
-      if (response.data.data.needs_setup) {
-        showSetupForm.value = true
-      }
-    } catch (error) {
-      console.error('Failed to check setup status:', error)
-    }
-  }
-})
-
-const handleLogin = async () => {
-  loginError.value = ''
-  try {
-    const response = await api.post('/api/auth/login', {
-      username: loginForm.value.username,
-      password: loginForm.value.password
-    })
-
-    const { token, user } = response.data.data
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(user))
-
-    isLoggedIn.value = true
-    currentUser.value = user
-
-    loginForm.value = { username: '', password: '' }
-  } catch (error) {
-    loginError.value = error.response?.data?.error || 'Login failed'
-  }
+function handleLoginSuccess() {
+  // Navigate to dashboard after login
+  router.push('/')
 }
 
-const handleSetup = async () => {
-  setupError.value = ''
-  try {
-    const response = await api.post('/setup/admin', {
-      username: setupForm.value.username,
-      password: setupForm.value.password,
-      email: setupForm.value.email
-    })
-
-    const { token, user } = response.data.data
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(user))
-
-    isLoggedIn.value = true
-    currentUser.value = user
-    showSetupForm.value = false
-
-    setupForm.value = { username: '', password: '', email: '' }
-  } catch (error) {
-    setupError.value = error.response?.data?.error || 'Setup failed'
-  }
+function logout() {
+  authStore.logout()
+  router.push('/')
 }
 
-const logout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  isLoggedIn.value = false
-  currentUser.value = null
+function isActive(path) {
+  if (path === '/') {
+    return route.path === '/'
+  }
+  return route.path.startsWith(path)
 }
 </script>
 
+<template>
+  <div id="app">
+    <!-- Show login view when not authenticated -->
+    <LoginView v-if="!isAuthenticated" @login-success="handleLoginSuccess" />
+
+    <!-- Show main app when authenticated -->
+    <template v-else>
+      <header class="app-header">
+        <div class="header-left">
+          <router-link to="/" class="logo">TaskFlow</router-link>
+        </div>
+        <nav class="main-nav">
+          <router-link to="/" :class="{ active: isActive('/') && route.path === '/' }">
+            Dashboard
+          </router-link>
+          <router-link to="/jobs" :class="{ active: isActive('/jobs') }">
+            Jobs
+          </router-link>
+          <router-link to="/runs" :class="{ active: isActive('/runs') }">
+            Runs
+          </router-link>
+        </nav>
+        <div class="header-right">
+          <span class="user-info">
+            {{ currentUser?.username }}
+            <span v-if="currentUser?.role === 'admin'" class="role-badge">Admin</span>
+          </span>
+          <button @click="logout" class="btn btn-logout">Logout</button>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <router-view />
+      </main>
+    </template>
+  </div>
+</template>
+
 <style scoped>
-header {
+/* Uses global color variables from style.css */
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid #ccc;
-  background-color: #f5f5f5;
+  padding: 0 2rem;
+  height: 60px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-light);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-header h1 {
-  margin: 0;
-}
-
-nav {
+.header-left {
   display: flex;
-  gap: 1rem;
   align-items: center;
 }
 
-nav a {
-  color: #0066cc;
+.logo {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--black);
+  text-decoration: none;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+}
+
+.logo:hover {
+  color: var(--black);
+}
+
+.main-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.main-nav a {
+  color: var(--black);
   text-decoration: none;
   padding: 0.5rem 1rem;
+  border-radius: 0;
+  font-weight: 700;
+  transition: none;
+  border: 2px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-nav a:hover {
-  text-decoration: underline;
+.main-nav a:hover {
+  color: var(--black);
+  background: var(--gray-lighter);
+  border: 1px solid var(--gray-light);
 }
 
-main {
-  padding: 2rem;
+.main-nav a.active {
+  color: var(--white);
+  background: var(--black);
+  border: 1px solid var(--gray-light);
 }
 
-.login-container {
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-}
-
-form {
+.header-right {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 1rem;
 }
 
-input {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--black);
+  font-weight: 700;
 }
 
-.error {
-  color: red;
-  font-size: 0.9rem;
+.role-badge {
+  background: var(--black);
+  color: var(--white);
+  font-size: 0.625rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0;
+  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--gray-light);
 }
 
-.dashboard {
-  max-width: 1000px;
+.btn-logout {
+  background: var(--white);
+  border: 1px solid var(--gray-light);
+  color: var(--black);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
+.btn-logout:hover {
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--gray-light);
 }
 
-.stat {
-  padding: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background-color: #f9f9f9;
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  background: var(--white);
 }
 
-.stat h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.9rem;
-  color: #666;
-}
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 1rem;
+    flex-wrap: wrap;
+    height: auto;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 
-.stat p {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #0066cc;
+  .main-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding-top: 0.5rem;
+    border-top: 3px solid var(--black);
+  }
+
+  .app-main {
+    padding: 1rem;
+  }
 }
 </style>

@@ -71,6 +71,15 @@ func (s *Store) GetRun(id string) (*Run, error) {
 
 // ListRuns retrieves runs with optional filtering
 func (s *Store) ListRuns(jobID *string, limit int, offset int) ([]*Run, error) {
+	// Validate and normalize pagination parameters
+	const maxLimit = 1000
+	if limit <= 0 || limit > maxLimit {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	query := `SELECT id, job_id, status, exit_code, trigger_type, started_at, finished_at, duration_ms, error_message
 	 FROM runs`
 
@@ -128,7 +137,13 @@ func (s *Store) UpdateRun(run *Run) error {
 	_, err := s.db.Exec(
 		`UPDATE runs SET status = ?, exit_code = ?, started_at = ?, finished_at = ?, duration_ms = ?, error_message = ?
 		 WHERE id = ?`,
-		run.Status, run.ExitCode, run.StartedAt, run.FinishedAt, run.DurationMs, run.ErrorMsg, run.ID,
+		run.Status,
+		PointerToNullInt64(run.ExitCode),
+		PointerToNullTime(run.StartedAt),
+		PointerToNullTime(run.FinishedAt),
+		PointerToNullInt64Ptr(run.DurationMs),
+		run.ErrorMsg,
+		run.ID,
 	)
 	return err
 }

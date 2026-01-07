@@ -48,3 +48,4 @@ web/frontend/.env.local
 Thumbs.db
 
 software_factory.sh
+commit_all.sh

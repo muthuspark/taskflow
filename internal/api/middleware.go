@@ -58,6 +58,16 @@ func AuthMiddleware(jwtManager *auth.JWTManager, store *store.Store) func(http.H
 	}
 }
 
+// RequestBodyLimitMiddleware limits the size of incoming request bodies
+func RequestBodyLimitMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // CORSMiddleware adds CORS headers
 func CORSMiddleware(allowedOrigins string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

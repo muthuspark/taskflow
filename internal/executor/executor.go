@@ -6,8 +6,10 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
+	internal "github.com/taskflow/taskflow/internal"
 	"github.com/taskflow/taskflow/internal/store"
 )
 
@@ -25,21 +27,21 @@ func New(st *store.Store) *Executor {
 func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) error {
 	// Validate job script
 	if job.Script == "" {
-		run.Status = "failure"
+		run.Status = internal.JobStatusFailure
 		run.ErrorMsg = "Job script is empty"
 		e.store.UpdateRun(run)
 		return fmt.Errorf("empty script")
 	}
 
-	if len(job.Script) > 1000000 { // 1MB limit
-		run.Status = "failure"
-		run.ErrorMsg = "Job script exceeds maximum size (1MB)"
+	if len(job.Script) > internal.MaxScriptSize {
+		run.Status = internal.JobStatusFailure
+		run.ErrorMsg = fmt.Sprintf("Job script exceeds maximum size (%s)", internal.MaxScriptSizeReadable)
 		e.store.UpdateRun(run)
 		return fmt.Errorf("script too large")
 	}
 
 	// Update run status to running
-	run.Status = "running"
+	run.Status = internal.JobStatusRunning
 	now := time.Now()
 	run.StartedAt = &now
 	if err := e.store.UpdateRun(run); err != nil {
@@ -80,12 +82,22 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 		return err
 	}
 
-	// Stream logs concurrently
-	go e.streamLogs(run.ID, stdout, "stdout")
-	go e.streamLogs(run.ID, stderr, "stderr")
+	// Stream logs concurrently with synchronization
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		e.streamLogs(run.ID, stdout, "stdout")
+	}()
+	go func() {
+		defer wg.Done()
+		e.streamLogs(run.ID, stderr, "stderr")
+	}()
 
 	// Wait for command to complete or timeout
 	err = cmd.Wait()
+	// Ensure all logs are fully written before proceeding
+	wg.Wait()
 
 	// Determine final status
 	finished := time.Now()
@@ -95,12 +107,12 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 
 	if err != nil {
 		if execCtx.Err() == context.DeadlineExceeded {
-			run.Status = "timeout"
+			run.Status = internal.JobStatusTimeout
 			run.ErrorMsg = fmt.Sprintf("Job exceeded timeout of %d seconds", job.TimeoutSeconds)
-			code := 124
+			code := internal.ExitCodeTimeout
 			run.ExitCode = &code
 		} else {
-			run.Status = "failure"
+			run.Status = internal.JobStatusFailure
 			run.ErrorMsg = err.Error()
 			// Try to get exit code
 			if exitErr, ok := err.(*exec.ExitError); ok {
@@ -109,13 +121,13 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 			}
 		}
 	} else {
-		run.Status = "success"
-		code := 0
+		run.Status = internal.JobStatusSuccess
+		code := internal.ExitCodeSuccess
 		run.ExitCode = &code
 	}
 
 	// Log final status
-	e.store.AddLog(run.ID, "system", fmt.Sprintf("Job %s with status: %s", run.ID, run.Status))
+	e.store.AddLog(run.ID, internal.StreamSystem, fmt.Sprintf("Job %s with status: %s", run.ID, run.Status))
 
 	// Update run in database
 	if err := e.store.UpdateRun(run); err != nil {
@@ -130,7 +142,7 @@ func (e *Executor) streamLogs(runID string, pipe interface{}, stream string) {
 	// Simple implementation - in production, would use bufio.Scanner
 	// For now, just ensure pipe is read
 	if r, ok := pipe.(interface{ Read(p []byte) (n int, err error) }); ok {
-		buf := make([]byte, 4096)
+		buf := make([]byte, internal.LogStreamBufferSize)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {

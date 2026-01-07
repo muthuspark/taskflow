@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -133,8 +134,18 @@ func scanJSONArray(val interface{}, target *[]int) error {
 		*target = nil
 		return nil
 	}
-	// In a real implementation, unmarshal from JSON string
-	// For now, initialize empty
+
+	// Handle string representation from database
+	if str, ok := val.(string); ok {
+		return json.Unmarshal([]byte(str), target)
+	}
+
+	// Handle byte slice representation
+	if bytes, ok := val.([]byte); ok {
+		return json.Unmarshal(bytes, target)
+	}
+
+	// Initialize empty array for unexpected types
 	*target = []int{}
 	return nil
 }
@@ -159,6 +170,14 @@ func NullTimeToPointer(n sql.NullTime) *time.Time {
 func PointerToNullInt64(p *int) sql.NullInt64 {
 	if p != nil {
 		return sql.NullInt64{Int64: int64(*p), Valid: true}
+	}
+	return sql.NullInt64{Valid: false}
+}
+
+// PointerToNullInt64Ptr converts *int64 to sql.NullInt64
+func PointerToNullInt64Ptr(p *int64) sql.NullInt64 {
+	if p != nil {
+		return sql.NullInt64{Int64: *p, Valid: true}
 	}
 	return sql.NullInt64{Valid: false}
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,6 +36,20 @@ func main() {
 	}
 	defer db.Close()
 
+	// Create default admin user if no users exist
+	count, err := db.UserCount()
+	if err == nil && count == 0 {
+		hash, err := auth.HashPassword("password")
+		if err == nil {
+			_, err = db.CreateUser("admin", "admin@localhost", hash, "admin")
+			if err != nil {
+				log.Printf("Warning: Failed to create default admin user: %v\n", err)
+			} else {
+				log.Println("Created default admin user with credentials admin/password")
+			}
+		}
+	}
+
 	// Initialize JWT manager
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
@@ -42,20 +57,50 @@ func main() {
 	sched := scheduler.New(db)
 	exec := executor.New(db)
 
-	// Create HTTP router
-	router := api.NewRouter(db, jwtManager, cfg.AllowedOrigins)
-
 	// Create WebSocket hub with CORS validation
 	wsHub := api.NewWSHub(cfg.AllowedOrigins)
 	go wsHub.Run()
 
-	// Add WebSocket handler
-	http.HandleFunc("GET /api/runs/{id}/logs/live", wsHub.HandleLogsWebSocket)
+	// Create HTTP router (pass wsHub for WebSocket registration)
+	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins)
+
+	// Create main handler that combines router and file server
+	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Route API, health, and setup requests to the router
+		if isAPIPath(r.URL.Path) {
+			router.ServeHTTP(w, r)
+			return
+		}
+
+		// Serve frontend files or SPA index.html
+		path := r.URL.Path
+		if path == "" {
+			path = "/"
+		}
+
+		if path == "/" {
+			http.ServeFile(w, r, "web/frontend/dist/index.html")
+			return
+		}
+
+		filePath := "web/frontend/dist" + path
+		if _, err := os.Stat(filePath); err == nil {
+			http.ServeFile(w, r, filePath)
+			return
+		}
+
+		// For SPA, serve index.html for non-asset routes
+		if !isAssetPath(path) {
+			http.ServeFile(w, r, "web/frontend/dist/index.html")
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
 
 	// Create HTTP server
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: router,
+		Handler: mainHandler,
 	}
 
 	// Start scheduler
@@ -118,4 +163,30 @@ func main() {
 	}
 
 	log.Println("Shutdown complete")
+}
+
+// isAPIPath checks if a path should be handled by the API router
+func isAPIPath(path string) bool {
+	return path == "/health" ||
+		path == "/setup/status" ||
+		strings.HasPrefix(path, "/setup/") ||
+		strings.HasPrefix(path, "/api/") ||
+		strings.HasPrefix(path, "/ws/")
+}
+
+// isAssetPath checks if a path is likely an asset file
+func isAssetPath(path string) bool {
+	return path == "/" ||
+		path == "/index.html" ||
+		isFileExtension(path, ".js") ||
+		isFileExtension(path, ".css") ||
+		isFileExtension(path, ".png") ||
+		isFileExtension(path, ".svg") ||
+		isFileExtension(path, ".jpg") ||
+		isFileExtension(path, ".jpeg")
+}
+
+// isFileExtension checks if path has the given extension
+func isFileExtension(path string, ext string) bool {
+	return len(path) > len(ext) && path[len(path)-len(ext):] == ext
 }

@@ -1,0 +1,84 @@
+import api from './api'
+
+/**
+ * Auth service for handling authentication operations
+ */
+const authService = {
+  /**
+   * Login with username and password
+   * @param {string} username
+   * @param {string} password
+   * @returns {Promise<{token: string, user: object}>}
+   */
+  async login(username, password) {
+    const response = await api.post('/api/auth/login', { username, password })
+    const { token, user } = response.data.data
+
+    // Store token and user in localStorage
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+
+    return { token, user }
+  },
+
+  /**
+   * Setup first admin account
+   * @param {string} username
+   * @param {string} password
+   * @param {string} email
+   * @returns {Promise<{token: string, user: object}>}
+   */
+  async setupAdmin(username, password, email) {
+    const response = await api.post('/setup/admin', { username, password, email })
+    const { token, user } = response.data.data
+
+    // Store token and user in localStorage
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+
+    return { token, user }
+  },
+
+  /**
+   * Check if setup is required (no users exist)
+   * @returns {Promise<{setup_required: boolean}>}
+   */
+  async checkSetupStatus() {
+    const response = await api.get('/setup/status')
+    return response.data.data
+  },
+
+  /**
+   * Logout and clear stored credentials
+   */
+  logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  },
+
+  /**
+   * Get current user from localStorage
+   * @returns {object|null}
+   */
+  getCurrentUser() {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      try {
+        return JSON.parse(userStr)
+      } catch {
+        return null
+      }
+    }
+    return null
+  },
+
+  /**
+   * Check if user is authenticated
+   * @returns {boolean}
+   */
+  isAuthenticated() {
+    return !!localStorage.getItem('token')
+  }
+}
+
+export default authService
