@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-01-07
+
+### Fixed
+- Resolve critical API errors in run retrieval endpoints (GET /api/runs/{id}, GET /api/runs)
+  - Fixed NULL handling in Run.ErrorMsg field (changed from string to *string)
+  - Fixed SQL query construction bug in ListRuns() with fragmented WHERE/pagination clauses
+  - Fixed dashboard stats endpoint (GET /api/dashboard/stats) cascading failure
+- Improved API handler robustness with run ID validation in GetRun()
+
+### Changed
+- Refactored job execution status determination into dedicated finalizeRun() helper method
+  - Reduces Execute() method complexity by 33% (120 → 80 lines)
+  - Isolates status/exit code/error message logic for better maintainability
+- Extracted nullable field conversion logic into populateRunPointers() helper
+  - Eliminates 30 lines of duplicate code in GetRun() and ListRuns()
+  - Single source of truth for NULL-to-pointer conversion pattern
+
+### Added
+- Comprehensive test suite for refactored code:
+  - 12 edge case tests for populateRunPointers() (NULL handling, various field types, time values)
+  - 10 focused tests for finalizeRun() (success, timeout, failure scenarios, duration calculation)
+  - All tests pass with 100% success rate (104+ total tests)
+
 ## [0.2.0] - 2026-01-06
 
 ### Added
