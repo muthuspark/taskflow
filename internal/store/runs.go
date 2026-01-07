@@ -35,6 +35,7 @@ func (s *Store) GetRun(id string) (*Run, error) {
 	var exitCode sql.NullInt64
 	var startedAt, finishedAt sql.NullTime
 	var durationMs sql.NullInt64
+	var errorMsg sql.NullString
 
 	err := s.db.QueryRow(
 		`SELECT id, job_id, status, exit_code, trigger_type, started_at, finished_at, duration_ms, error_message
@@ -42,7 +43,7 @@ func (s *Store) GetRun(id string) (*Run, error) {
 		id,
 	).Scan(
 		&run.ID, &run.JobID, &run.Status, &exitCode, &run.TriggerType,
-		&startedAt, &finishedAt, &durationMs, &run.ErrorMsg,
+		&startedAt, &finishedAt, &durationMs, &errorMsg,
 	)
 
 	if err == sql.ErrNoRows {
@@ -52,20 +53,7 @@ func (s *Store) GetRun(id string) (*Run, error) {
 		return nil, fmt.Errorf("failed to get run: %w", err)
 	}
 
-	if exitCode.Valid {
-		code := int(exitCode.Int64)
-		run.ExitCode = &code
-	}
-	if startedAt.Valid {
-		run.StartedAt = &startedAt.Time
-	}
-	if finishedAt.Valid {
-		run.FinishedAt = &finishedAt.Time
-	}
-	if durationMs.Valid {
-		run.DurationMs = &durationMs.Int64
-	}
-
+	populateRunPointers(run, exitCode, startedAt, finishedAt, durationMs, errorMsg)
 	return run, nil
 }
 
@@ -80,17 +68,19 @@ func (s *Store) ListRuns(jobID *string, limit int, offset int) ([]*Run, error) {
 		offset = 0
 	}
 
-	query := `SELECT id, job_id, status, exit_code, trigger_type, started_at, finished_at, duration_ms, error_message
+	baseQuery := `SELECT id, job_id, status, exit_code, trigger_type, started_at, finished_at, duration_ms, error_message
 	 FROM runs`
+	orderAndPagination := ` ORDER BY started_at DESC LIMIT ? OFFSET ?`
 
 	var rows *sql.Rows
 	var err error
 
 	if jobID != nil {
-		query += ` WHERE job_id = ?`
-		rows, err = s.db.Query(query+` ORDER BY started_at DESC LIMIT ? OFFSET ?`, *jobID, limit, offset)
+		query := baseQuery + ` WHERE job_id = ?` + orderAndPagination
+		rows, err = s.db.Query(query, *jobID, limit, offset)
 	} else {
-		rows, err = s.db.Query(query + ` ORDER BY started_at DESC LIMIT ? OFFSET ?`, limit, offset)
+		query := baseQuery + orderAndPagination
+		rows, err = s.db.Query(query, limit, offset)
 	}
 
 	if err != nil {
@@ -104,28 +94,16 @@ func (s *Store) ListRuns(jobID *string, limit int, offset int) ([]*Run, error) {
 		var exitCode sql.NullInt64
 		var startedAt, finishedAt sql.NullTime
 		var durationMs sql.NullInt64
+		var errorMsg sql.NullString
 
 		if err := rows.Scan(
 			&run.ID, &run.JobID, &run.Status, &exitCode, &run.TriggerType,
-			&startedAt, &finishedAt, &durationMs, &run.ErrorMsg,
+			&startedAt, &finishedAt, &durationMs, &errorMsg,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
 		}
 
-		if exitCode.Valid {
-			code := int(exitCode.Int64)
-			run.ExitCode = &code
-		}
-		if startedAt.Valid {
-			run.StartedAt = &startedAt.Time
-		}
-		if finishedAt.Valid {
-			run.FinishedAt = &finishedAt.Time
-		}
-		if durationMs.Valid {
-			run.DurationMs = &durationMs.Int64
-		}
-
+		populateRunPointers(run, exitCode, startedAt, finishedAt, durationMs, errorMsg)
 		runs = append(runs, run)
 	}
 
@@ -195,4 +173,26 @@ func (s *Store) DeleteOldRuns(days int) error {
 	}
 	fmt.Printf("Deleted %d old runs\n", rows)
 	return nil
+}
+
+// populateRunPointers converts nullable database types to Run struct pointers.
+// This eliminates duplicate null-checking code in GetRun and ListRuns.
+// Follows DRY principle: null conversion logic in one place.
+func populateRunPointers(run *Run, exitCode sql.NullInt64, startedAt, finishedAt sql.NullTime, durationMs sql.NullInt64, errorMsg sql.NullString) {
+	if exitCode.Valid {
+		code := int(exitCode.Int64)
+		run.ExitCode = &code
+	}
+	if startedAt.Valid {
+		run.StartedAt = &startedAt.Time
+	}
+	if finishedAt.Valid {
+		run.FinishedAt = &finishedAt.Time
+	}
+	if durationMs.Valid {
+		run.DurationMs = &durationMs.Int64
+	}
+	if errorMsg.Valid {
+		run.ErrorMsg = &errorMsg.String
+	}
 }

@@ -28,14 +28,16 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	// Validate job script
 	if job.Script == "" {
 		run.Status = internal.JobStatusFailure
-		run.ErrorMsg = "Job script is empty"
+		msg := "Job script is empty"
+		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
 		return fmt.Errorf("empty script")
 	}
 
 	if len(job.Script) > internal.MaxScriptSize {
 		run.Status = internal.JobStatusFailure
-		run.ErrorMsg = fmt.Sprintf("Job script exceeds maximum size (%s)", internal.MaxScriptSizeReadable)
+		msg := fmt.Sprintf("Job script exceeds maximum size (%s)", internal.MaxScriptSizeReadable)
+		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
 		return fmt.Errorf("script too large")
 	}
@@ -61,7 +63,8 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		run.Status = "failure"
-		run.ErrorMsg = fmt.Sprintf("Failed to create stdout pipe: %v", err)
+		msg := fmt.Sprintf("Failed to create stdout pipe: %v", err)
+		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
 		return err
 	}
@@ -69,7 +72,8 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		run.Status = "failure"
-		run.ErrorMsg = fmt.Sprintf("Failed to create stderr pipe: %v", err)
+		msg := fmt.Sprintf("Failed to create stderr pipe: %v", err)
+		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
 		return err
 	}
@@ -77,7 +81,8 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	// Start the command
 	if err := cmd.Start(); err != nil {
 		run.Status = "failure"
-		run.ErrorMsg = fmt.Sprintf("Failed to start command: %v", err)
+		msg := fmt.Sprintf("Failed to start command: %v", err)
+		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
 		return err
 	}
@@ -99,32 +104,8 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	// Ensure all logs are fully written before proceeding
 	wg.Wait()
 
-	// Determine final status
-	finished := time.Now()
-	run.FinishedAt = &finished
-	duration := int64(finished.Sub(*run.StartedAt).Milliseconds())
-	run.DurationMs = &duration
-
-	if err != nil {
-		if execCtx.Err() == context.DeadlineExceeded {
-			run.Status = internal.JobStatusTimeout
-			run.ErrorMsg = fmt.Sprintf("Job exceeded timeout of %d seconds", job.TimeoutSeconds)
-			code := internal.ExitCodeTimeout
-			run.ExitCode = &code
-		} else {
-			run.Status = internal.JobStatusFailure
-			run.ErrorMsg = err.Error()
-			// Try to get exit code
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				code := exitErr.ExitCode()
-				run.ExitCode = &code
-			}
-		}
-	} else {
-		run.Status = internal.JobStatusSuccess
-		code := internal.ExitCodeSuccess
-		run.ExitCode = &code
-	}
+	// Determine final status and update run
+	e.finalizeRun(run, job, err, execCtx)
 
 	// Log final status
 	e.store.AddLog(run.ID, internal.StreamSystem, fmt.Sprintf("Job %s with status: %s", run.ID, run.Status))
@@ -187,4 +168,36 @@ func (e *Executor) GetRunningJob() *store.Run {
 		return run
 	}
 	return nil
+}
+
+// finalizeRun sets the final status, exit code, and error message for a completed run.
+// Extracted from Execute() to reduce its complexity and improve maintainability.
+func (e *Executor) finalizeRun(run *store.Run, job *store.Job, cmdErr error, execCtx context.Context) {
+	finished := time.Now()
+	run.FinishedAt = &finished
+	duration := int64(finished.Sub(*run.StartedAt).Milliseconds())
+	run.DurationMs = &duration
+
+	if cmdErr != nil {
+		if execCtx.Err() == context.DeadlineExceeded {
+			run.Status = internal.JobStatusTimeout
+			msg := fmt.Sprintf("Job exceeded timeout of %d seconds", job.TimeoutSeconds)
+			run.ErrorMsg = &msg
+			code := internal.ExitCodeTimeout
+			run.ExitCode = &code
+		} else {
+			run.Status = internal.JobStatusFailure
+			msg := cmdErr.Error()
+			run.ErrorMsg = &msg
+			// Try to extract exit code from command execution error
+			if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+				code := exitErr.ExitCode()
+				run.ExitCode = &code
+			}
+		}
+	} else {
+		run.Status = internal.JobStatusSuccess
+		code := internal.ExitCodeSuccess
+		run.ExitCode = &code
+	}
 }

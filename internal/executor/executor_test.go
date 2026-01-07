@@ -100,7 +100,8 @@ func TestScriptValidation(t *testing.T) {
 				require.Error(t, err)
 				assert.Equal(t, "failure", run.Status)
 				// Check run.ErrorMsg for validation errors
-				assert.Contains(t, run.ErrorMsg, tt.expectMsg, "Expected error message in run.ErrorMsg")
+				require.NotNil(t, run.ErrorMsg, "Expected error message in run.ErrorMsg")
+			assert.Contains(t, *run.ErrorMsg, tt.expectMsg, "Expected error message in run.ErrorMsg")
 			} else {
 				// For valid but non-existent scripts, error is expected from command execution
 				// But validation should pass
@@ -131,7 +132,8 @@ func TestEmptyScriptHandling(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, "failure", run.Status)
-	assert.Equal(t, "Job script is empty", run.ErrorMsg)
+	require.NotNil(t, run.ErrorMsg)
+	assert.Equal(t, "Job script is empty", *run.ErrorMsg)
 }
 
 // TestLargeScriptHandling tests large script is caught before execution
@@ -156,7 +158,8 @@ func TestLargeScriptHandling(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, "failure", run.Status)
-	assert.Contains(t, run.ErrorMsg, "exceeds maximum")
+	require.NotNil(t, run.ErrorMsg)
+	assert.Contains(t, *run.ErrorMsg, "exceeds maximum")
 }
 
 // TestCanExecute tests concurrency check

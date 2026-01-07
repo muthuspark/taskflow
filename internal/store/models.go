@@ -59,7 +59,7 @@ type Run struct {
 	StartedAt   *time.Time     `json:"started_at"`
 	FinishedAt  *time.Time     `json:"finished_at"`
 	DurationMs  *int64         `json:"duration_ms"`
-	ErrorMsg    string         `json:"error_message"`
+	ErrorMsg    *string        `json:"error_message"`
 }
 
 // LogEntry represents a log line from job execution

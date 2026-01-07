@@ -475,6 +475,12 @@ func (h *RunHandlers) ListRuns(w http.ResponseWriter, r *http.Request) {
 func (h *RunHandlers) GetRun(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
 
+	// Validate run ID is not empty
+	if runID == "" {
+		WriteError(w, http.StatusBadRequest, "Run ID is required", "INVALID_ID")
+		return
+	}
+
 	run, err := h.store.GetRun(runID)
 	if err != nil {
 		WriteError(w, http.StatusNotFound, "Run not found", "NOT_FOUND")
