@@ -24,9 +24,9 @@ onMounted(() => {
   if (props.schedule) {
     minutes.value = [...(props.schedule.minutes || [])]
     hours.value = [...(props.schedule.hours || [])]
-    daysOfMonth.value = [...(props.schedule.days_of_month || [])]
+    daysOfMonth.value = [...(props.schedule.days || [])]
     months.value = [...(props.schedule.months || [])]
-    daysOfWeek.value = [...(props.schedule.days_of_week || [])]
+    daysOfWeek.value = [...(props.schedule.weekdays || [])]
   }
 })
 
@@ -135,9 +135,9 @@ async function handleSave() {
     const schedule = {
       minutes: minutes.value.length ? minutes.value : null,
       hours: hours.value.length ? hours.value : null,
-      days_of_month: daysOfMonth.value.length ? daysOfMonth.value : null,
+      days: daysOfMonth.value.length ? daysOfMonth.value : null,
       months: months.value.length ? months.value : null,
-      days_of_week: daysOfWeek.value.length ? daysOfWeek.value : null
+      weekdays: daysOfWeek.value.length ? daysOfWeek.value : null
     }
     emit('save', schedule)
   } finally {

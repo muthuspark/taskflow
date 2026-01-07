@@ -20,7 +20,7 @@ const runsService = {
     params.append('offset', offset.toString())
 
     const response = await api.get(`/api/runs?${params.toString()}`)
-    return response.data.data
+    return response.data.data.runs
   },
 
   /**
@@ -40,7 +40,7 @@ const runsService = {
    */
   async getLogs(id) {
     const response = await api.get(`/api/runs/${id}/logs`)
-    return response.data.data
+    return response.data.data.logs
   }
 }
 

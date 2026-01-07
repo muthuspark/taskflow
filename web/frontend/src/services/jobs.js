@@ -10,7 +10,7 @@ const jobsService = {
    */
   async list() {
     const response = await api.get('/api/jobs')
-    return response.data.data
+    return response.data.data.jobs
   },
 
   /**

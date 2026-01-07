@@ -124,14 +124,13 @@ async function handleSubmit() {
   justify-content: center;
   min-height: 100vh;
   background: var(--white);
-  border: 4px solid var(--black);
   padding: 1rem;
 }
 
 .login-card {
   background: var(--white);
   border-radius: 0;
-  border: 4px solid var(--black);
+  border: 2px solid var(--gray-light);
   box-shadow: none;
   padding: 2rem;
   width: 100%;
