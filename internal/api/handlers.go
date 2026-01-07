@@ -1,17 +1,14 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	internal "github.com/taskflow/taskflow/internal"
 	"github.com/taskflow/taskflow/internal/auth"
-	"github.com/taskflow/taskflow/internal/executor"
 	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
 )
@@ -147,14 +144,18 @@ func (h *AuthHandlers) CreateFirstAdmin(w http.ResponseWriter, r *http.Request) 
 
 // JobHandlers handles job endpoints
 type JobHandlers struct {
-	store      *store.Store
-	executor   *executor.Executor
-	scheduler  *scheduler.Scheduler
+	store     *store.Store
+	scheduler *scheduler.Scheduler
+	validator *JobValidator
 }
 
 // NewJobHandlers creates job handlers
-func NewJobHandlers(st *store.Store, exec *executor.Executor, sched *scheduler.Scheduler) *JobHandlers {
-	return &JobHandlers{store: st, executor: exec, scheduler: sched}
+func NewJobHandlers(st *store.Store, sched *scheduler.Scheduler) *JobHandlers {
+	return &JobHandlers{
+		store:     st,
+		scheduler: sched,
+		validator: NewJobValidator(),
+	}
 }
 
 // ListJobs handles GET /api/jobs
@@ -218,63 +219,8 @@ func (h *JobHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields
-	if req.Name == "" || req.Script == "" {
-		WriteError(w, http.StatusBadRequest, "Name and script are required", "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate name length
-	if len(req.Name) > internal.MaxJobNameLength {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Job name too long (max %d characters)", internal.MaxJobNameLength), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate script length
-	if len(req.Script) > internal.MaxScriptSize {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Script too long (max %s)", internal.MaxScriptSizeReadable), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate timeout
-	if req.TimeoutSeconds < internal.MinTimeoutSeconds || req.TimeoutSeconds > internal.MaxTimeoutSeconds {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Timeout must be between %d and %d seconds", internal.MinTimeoutSeconds, internal.MaxTimeoutSeconds), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate retry values
-	if req.RetryCount < internal.MinRetryCount || req.RetryCount > internal.MaxRetryCount {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry count must be between %d and %d", internal.MinRetryCount, internal.MaxRetryCount), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate retry delay
-	if req.RetryDelaySeconds < internal.MinRetryDelaySeconds || req.RetryDelaySeconds > internal.MaxRetryDelaySeconds {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry delay must be between %d and %d seconds", internal.MinRetryDelaySeconds, internal.MaxRetryDelaySeconds), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate notify_on
-	if req.NotifyOn != "" && req.NotifyOn != internal.NotifyAlways && req.NotifyOn != internal.NotifyFailure && req.NotifyOn != internal.NotifySuccess {
-		WriteError(w, http.StatusBadRequest, "Invalid notify_on value", "VALIDATION_ERROR")
-		return
-	}
-
-	// Set defaults
-	if req.WorkingDir == "" {
-		req.WorkingDir = internal.DefaultWorkingDir
-	}
-	if req.TimeoutSeconds == 0 {
-		req.TimeoutSeconds = internal.DefaultTimeoutSeconds
-	}
-	if req.NotifyOn == "" {
-		req.NotifyOn = internal.DefaultNotifyOn
-	}
-	if req.Timezone == "" {
-		req.Timezone = internal.DefaultTimeZone
-	}
-
-	newJob := &store.Job{
+	// Convert request to validator format
+	jobReq := &JobRequest{
 		Name:              req.Name,
 		Description:       req.Description,
 		Script:            req.Script,
@@ -282,12 +228,23 @@ func (h *JobHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 		TimeoutSeconds:    req.TimeoutSeconds,
 		RetryCount:        req.RetryCount,
 		RetryDelaySeconds: req.RetryDelaySeconds,
-		Enabled:           true,
 		NotifyEmails:      req.NotifyEmails,
 		NotifyOn:          req.NotifyOn,
 		Timezone:          req.Timezone,
-		CreatedBy:         userID,
 	}
+
+	// Validate using validator
+	if validErr := h.validator.ValidateJobRequest(jobReq); validErr != nil {
+		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
+		return
+	}
+
+	// Apply defaults
+	h.validator.ApplyDefaults(jobReq)
+
+	newJob := h.validator.ToJobModel(jobReq, nil)
+	newJob.Enabled = true
+	newJob.CreatedBy = userID
 
 	createdJob, err := h.store.CreateJob(newJob)
 	if err != nil {
@@ -346,50 +303,8 @@ func (h *JobHandlers) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields
-	if req.Name == "" || req.Script == "" {
-		WriteError(w, http.StatusBadRequest, "Name and script are required", "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate name length
-	if len(req.Name) > internal.MaxJobNameLength {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Job name too long (max %d characters)", internal.MaxJobNameLength), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate script length
-	if len(req.Script) > internal.MaxScriptSize {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Script too long (max %s)", internal.MaxScriptSizeReadable), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate timeout
-	if req.TimeoutSeconds < internal.MinTimeoutSeconds || req.TimeoutSeconds > internal.MaxTimeoutSeconds {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Timeout must be between %d and %d seconds", internal.MinTimeoutSeconds, internal.MaxTimeoutSeconds), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate retry values
-	if req.RetryCount < internal.MinRetryCount || req.RetryCount > internal.MaxRetryCount {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry count must be between %d and %d", internal.MinRetryCount, internal.MaxRetryCount), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate retry delay
-	if req.RetryDelaySeconds < internal.MinRetryDelaySeconds || req.RetryDelaySeconds > internal.MaxRetryDelaySeconds {
-		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry delay must be between %d and %d seconds", internal.MinRetryDelaySeconds, internal.MaxRetryDelaySeconds), "VALIDATION_ERROR")
-		return
-	}
-
-	// Validate notify_on
-	if req.NotifyOn != "" && req.NotifyOn != internal.NotifyAlways && req.NotifyOn != internal.NotifyFailure && req.NotifyOn != internal.NotifySuccess {
-		WriteError(w, http.StatusBadRequest, "Invalid notify_on value", "VALIDATION_ERROR")
-		return
-	}
-
-	job := &store.Job{
-		ID:                jobID,
+	// Convert request to validator format
+	jobReq := &JobRequest{
 		Name:              req.Name,
 		Description:       req.Description,
 		Script:            req.Script,
@@ -400,8 +315,16 @@ func (h *JobHandlers) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		NotifyEmails:      req.NotifyEmails,
 		NotifyOn:          req.NotifyOn,
 		Timezone:          req.Timezone,
-		Enabled:           req.Enabled,
 	}
+
+	// Validate using validator
+	if validErr := h.validator.ValidateJobRequest(jobReq); validErr != nil {
+		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
+		return
+	}
+
+	job := h.validator.ToJobModel(jobReq, &jobID)
+	job.Enabled = req.Enabled
 
 	if err := h.store.UpdateJob(job); err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to update job", "INTERNAL_ERROR")
@@ -455,15 +378,8 @@ func (h *JobHandlers) TriggerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute the job asynchronously in the background
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(job.TimeoutSeconds)*time.Second)
-		defer cancel()
-
-		if err := h.executor.Execute(ctx, run, job); err != nil {
-			log.Printf("Failed to execute job %s (run %s): %v\n", jobID, run.ID, err)
-		}
-	}()
+	// Enqueue the job to the scheduler's job queue to maintain sequential execution
+	h.scheduler.Enqueue(job)
 
 	WriteJSON(w, http.StatusCreated, run)
 }
@@ -593,36 +509,20 @@ func (h *ScheduleHandlers) SetJobSchedule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Validate ranges
-	for _, m := range req.Months {
-		if m < 1 || m > 12 {
-			WriteError(w, http.StatusBadRequest, "Months must be between 1-12", "VALIDATION_ERROR")
-			return
-		}
+	// Validate schedule using validator
+	validator := NewJobValidator()
+	schedReq := &ScheduleRequest{
+		Years:    req.Years,
+		Months:   req.Months,
+		Days:     req.Days,
+		Weekdays: req.Weekdays,
+		Hours:    req.Hours,
+		Minutes:  req.Minutes,
 	}
-	for _, d := range req.Days {
-		if d < 1 || d > 31 {
-			WriteError(w, http.StatusBadRequest, "Days must be between 1-31", "VALIDATION_ERROR")
-			return
-		}
-	}
-	for _, h := range req.Hours {
-		if h < 0 || h > 23 {
-			WriteError(w, http.StatusBadRequest, "Hours must be between 0-23", "VALIDATION_ERROR")
-			return
-		}
-	}
-	for _, min := range req.Minutes {
-		if min < 0 || min > 59 {
-			WriteError(w, http.StatusBadRequest, "Minutes must be between 0-59", "VALIDATION_ERROR")
-			return
-		}
-	}
-	for _, wd := range req.Weekdays {
-		if wd < 0 || wd > 6 {
-			WriteError(w, http.StatusBadRequest, "Weekdays must be between 0-6", "VALIDATION_ERROR")
-			return
-		}
+
+	if validErr := validator.ValidateScheduleRequest(schedReq); validErr != nil {
+		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
+		return
 	}
 
 	schedule := &store.Schedule{

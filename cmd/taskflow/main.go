@@ -61,8 +61,8 @@ func main() {
 	wsHub := api.NewWSHub(cfg.AllowedOrigins)
 	go wsHub.Run()
 
-	// Create HTTP router (pass wsHub for WebSocket registration)
-	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins)
+	// Create HTTP router (pass wsHub and scheduler for job processing)
+	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins, sched)
 
 	// Create main handler that combines router and file server
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

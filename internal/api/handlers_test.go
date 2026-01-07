@@ -322,3 +322,293 @@ func TestWriteError(t *testing.T) {
 	assert.Equal(t, "Test error message", response["error"])
 	assert.Equal(t, "TEST_CODE", response["code"])
 }
+
+// TestJobValidatorValidation tests the JobValidator validation logic
+func TestJobValidatorValidation(t *testing.T) {
+	validator := NewJobValidator()
+
+	tests := []struct {
+		name           string
+		req            *JobRequest
+		expectError    bool
+		expectErrorMsg string
+	}{
+		{
+			name: "valid job request",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+				NotifyOn:          "failure",
+			},
+			expectError: false,
+		},
+		{
+			name: "empty name",
+			req: &JobRequest{
+				Name:              "",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "Name and script are required",
+		},
+		{
+			name: "empty script",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "Name and script are required",
+		},
+		{
+			name: "name too long",
+			req: &JobRequest{
+				Name:              "a" + string(make([]byte, 255)),
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "too long",
+		},
+		{
+			name: "timeout too small",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    0, // Less than MinTimeoutSeconds (1)
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "Timeout must be between",
+		},
+		{
+			name: "timeout too large",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    90000, // Greater than MaxTimeoutSeconds (86400)
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "Timeout must be between",
+		},
+		{
+			name: "retry count too high",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        100,
+				RetryDelaySeconds: 60,
+			},
+			expectError:    true,
+			expectErrorMsg: "Retry count must be between",
+		},
+		{
+			name: "retry delay too large",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 90000, // Greater than MaxRetryDelaySeconds (86400)
+			},
+			expectError:    true,
+			expectErrorMsg: "Retry delay must be between",
+		},
+		{
+			name: "invalid notify_on",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+				NotifyOn:          "invalid",
+			},
+			expectError:    true,
+			expectErrorMsg: "Invalid notify_on value",
+		},
+		{
+			name: "empty notify_on is valid (uses default)",
+			req: &JobRequest{
+				Name:              "Test Job",
+				Script:            "echo 'hello'",
+				TimeoutSeconds:    3600,
+				RetryCount:        0,
+				RetryDelaySeconds: 60,
+				NotifyOn:          "",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateJobRequest(tt.req)
+			if tt.expectError {
+				require.NotNil(t, err, "expected validation error")
+				assert.Contains(t, err.Message, tt.expectErrorMsg)
+			} else {
+				assert.Nil(t, err, "expected no validation error")
+			}
+		})
+	}
+}
+
+// TestJobValidatorDefaults tests the ApplyDefaults method
+func TestJobValidatorDefaults(t *testing.T) {
+	validator := NewJobValidator()
+
+	req := &JobRequest{
+		Name:              "Test Job",
+		Script:            "echo 'hello'",
+		TimeoutSeconds:    0,
+		RetryCount:        0,
+		RetryDelaySeconds: 0,
+		NotifyOn:          "",
+		Timezone:          "",
+		WorkingDir:        "",
+	}
+
+	validator.ApplyDefaults(req)
+
+	// Check defaults are applied
+	assert.NotEqual(t, 0, req.TimeoutSeconds, "should apply default timeout")
+	assert.NotEmpty(t, req.NotifyOn, "should apply default notify_on")
+	assert.NotEmpty(t, req.Timezone, "should apply default timezone")
+	assert.NotEmpty(t, req.WorkingDir, "should apply default working dir")
+}
+
+// TestJobValidatorToJobModel tests the ToJobModel conversion
+func TestJobValidatorToJobModel(t *testing.T) {
+	validator := NewJobValidator()
+
+	req := &JobRequest{
+		Name:              "Test Job",
+		Description:       "Test Description",
+		Script:            "echo 'hello'",
+		WorkingDir:        "/tmp",
+		TimeoutSeconds:    3600,
+		RetryCount:        2,
+		RetryDelaySeconds: 60,
+		NotifyEmails:      "test@example.com",
+		NotifyOn:          "failure",
+		Timezone:          "UTC",
+	}
+
+	jobID := "test-id-123"
+	job := validator.ToJobModel(req, &jobID)
+
+	assert.Equal(t, jobID, job.ID)
+	assert.Equal(t, "Test Job", job.Name)
+	assert.Equal(t, "Test Description", job.Description)
+	assert.Equal(t, "echo 'hello'", job.Script)
+	assert.Equal(t, "/tmp", job.WorkingDir)
+	assert.Equal(t, 3600, job.TimeoutSeconds)
+	assert.Equal(t, 2, job.RetryCount)
+	assert.Equal(t, 60, job.RetryDelaySeconds)
+	assert.Equal(t, "test@example.com", job.NotifyEmails)
+	assert.Equal(t, "failure", job.NotifyOn)
+	assert.Equal(t, "UTC", job.Timezone)
+}
+
+// TestScheduleValidatorValidation tests schedule validation
+func TestScheduleValidatorValidation(t *testing.T) {
+	validator := NewJobValidator()
+
+	tests := []struct {
+		name           string
+		req            *ScheduleRequest
+		expectError    bool
+		expectErrorMsg string
+	}{
+		{
+			name: "valid schedule",
+			req: &ScheduleRequest{
+				Months:   []int{1, 2, 3},
+				Days:     []int{1, 15},
+				Hours:    []int{9, 17},
+				Minutes:  []int{0, 30},
+				Weekdays: []int{1, 2, 3},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty schedule is valid",
+			req: &ScheduleRequest{
+				Months:   []int{},
+				Days:     []int{},
+				Hours:    []int{},
+				Minutes:  []int{},
+				Weekdays: []int{},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid month",
+			req: &ScheduleRequest{
+				Months: []int{13},
+			},
+			expectError:    true,
+			expectErrorMsg: "Months must be between 1-12",
+		},
+		{
+			name: "invalid day",
+			req: &ScheduleRequest{
+				Days: []int{32},
+			},
+			expectError:    true,
+			expectErrorMsg: "Days must be between 1-31",
+		},
+		{
+			name: "invalid hour",
+			req: &ScheduleRequest{
+				Hours: []int{24},
+			},
+			expectError:    true,
+			expectErrorMsg: "Hours must be between 0-23",
+		},
+		{
+			name: "invalid minute",
+			req: &ScheduleRequest{
+				Minutes: []int{60},
+			},
+			expectError:    true,
+			expectErrorMsg: "Minutes must be between 0-59",
+		},
+		{
+			name: "invalid weekday",
+			req: &ScheduleRequest{
+				Weekdays: []int{7},
+			},
+			expectError:    true,
+			expectErrorMsg: "Weekdays must be between 0-6",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateScheduleRequest(tt.req)
+			if tt.expectError {
+				require.NotNil(t, err, "expected validation error")
+				assert.Contains(t, err.Message, tt.expectErrorMsg)
+			} else {
+				assert.Nil(t, err, "expected no validation error")
+			}
+		})
+	}
+}

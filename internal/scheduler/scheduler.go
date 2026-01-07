@@ -131,3 +131,8 @@ func (s *Scheduler) IsRunning() bool {
 	defer s.mu.RUnlock()
 	return s.running
 }
+
+// Enqueue adds a job to the execution queue (for manual triggers)
+func (s *Scheduler) Enqueue(job *store.Job) {
+	s.queue.Enqueue(job)
+}

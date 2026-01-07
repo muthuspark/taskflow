@@ -5,16 +5,17 @@ import (
 
 	internal "github.com/taskflow/taskflow/internal"
 	"github.com/taskflow/taskflow/internal/auth"
+	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
 )
 
 // NewRouter creates and configures the HTTP router
-func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsOrigins string) *http.ServeMux {
+func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsOrigins string, sched *scheduler.Scheduler) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Handlers
 	authHandlers := NewAuthHandlers(st, jwtManager)
-	jobHandlers := NewJobHandlers(st)
+	jobHandlers := NewJobHandlers(st, sched)
 	runHandlers := NewRunHandlers(st)
 	scheduleHandlers := NewScheduleHandlers(st)
 	dashboardHandlers := NewDashboardHandlers(st)
