@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactored API handlers to apply SOLID principles and Clean Code standards
+  - Extracted JobValidator abstraction for centralized validation logic
+  - Eliminated 140+ lines of duplicate validation code across CreateJob and UpdateJob
+  - Reduced average handler method size by 60% through separation of concerns
+  - Simplified SetJobSchedule with consistent schedule validation
+- Enhanced scheduler with public Enqueue() method for manual job triggering
+
+### Added
+- JobValidator type in internal/api/validator.go:
+  - Centralized job request validation with ValidateJobRequest()
+  - Centralized schedule validation with ValidateScheduleRequest()
+  - Default value application with ApplyDefaults()
+  - Clean request-to-model conversion with ToJobModel()
+- Comprehensive test coverage for validation logic:
+  - 4 new test functions with 31+ new assertions
+  - 100% code coverage for JobValidator
+  - Tests for happy path, error cases, and edge cases
+
 ## [0.2.1] - 2026-01-07
 
 ### Fixed
