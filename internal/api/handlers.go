@@ -1,14 +1,18 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	internal "github.com/taskflow/taskflow/internal"
 	"github.com/taskflow/taskflow/internal/auth"
+	"github.com/taskflow/taskflow/internal/executor"
+	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
 )
 
@@ -143,12 +147,14 @@ func (h *AuthHandlers) CreateFirstAdmin(w http.ResponseWriter, r *http.Request) 
 
 // JobHandlers handles job endpoints
 type JobHandlers struct {
-	store *store.Store
+	store      *store.Store
+	executor   *executor.Executor
+	scheduler  *scheduler.Scheduler
 }
 
 // NewJobHandlers creates job handlers
-func NewJobHandlers(st *store.Store) *JobHandlers {
-	return &JobHandlers{store: st}
+func NewJobHandlers(st *store.Store, exec *executor.Executor, sched *scheduler.Scheduler) *JobHandlers {
+	return &JobHandlers{store: st, executor: exec, scheduler: sched}
 }
 
 // ListJobs handles GET /api/jobs
@@ -340,6 +346,12 @@ func (h *JobHandlers) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate required fields
+	if req.Name == "" || req.Script == "" {
+		WriteError(w, http.StatusBadRequest, "Name and script are required", "VALIDATION_ERROR")
+		return
+	}
+
 	// Validate name length
 	if len(req.Name) > internal.MaxJobNameLength {
 		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Job name too long (max %d characters)", internal.MaxJobNameLength), "VALIDATION_ERROR")
@@ -355,6 +367,24 @@ func (h *JobHandlers) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	// Validate timeout
 	if req.TimeoutSeconds < internal.MinTimeoutSeconds || req.TimeoutSeconds > internal.MaxTimeoutSeconds {
 		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Timeout must be between %d and %d seconds", internal.MinTimeoutSeconds, internal.MaxTimeoutSeconds), "VALIDATION_ERROR")
+		return
+	}
+
+	// Validate retry values
+	if req.RetryCount < internal.MinRetryCount || req.RetryCount > internal.MaxRetryCount {
+		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry count must be between %d and %d", internal.MinRetryCount, internal.MaxRetryCount), "VALIDATION_ERROR")
+		return
+	}
+
+	// Validate retry delay
+	if req.RetryDelaySeconds < internal.MinRetryDelaySeconds || req.RetryDelaySeconds > internal.MaxRetryDelaySeconds {
+		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Retry delay must be between %d and %d seconds", internal.MinRetryDelaySeconds, internal.MaxRetryDelaySeconds), "VALIDATION_ERROR")
+		return
+	}
+
+	// Validate notify_on
+	if req.NotifyOn != "" && req.NotifyOn != internal.NotifyAlways && req.NotifyOn != internal.NotifyFailure && req.NotifyOn != internal.NotifySuccess {
+		WriteError(w, http.StatusBadRequest, "Invalid notify_on value", "VALIDATION_ERROR")
 		return
 	}
 
@@ -424,6 +454,16 @@ func (h *JobHandlers) TriggerJob(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusInternalServerError, "Failed to create run", "INTERNAL_ERROR")
 		return
 	}
+
+	// Execute the job asynchronously in the background
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(job.TimeoutSeconds)*time.Second)
+		defer cancel()
+
+		if err := h.executor.Execute(ctx, run, job); err != nil {
+			log.Printf("Failed to execute job %s (run %s): %v\n", jobID, run.ID, err)
+		}
+	}()
 
 	WriteJSON(w, http.StatusCreated, run)
 }
