@@ -35,37 +35,46 @@ function isActive(path) {
 </script>
 
 <template>
-  <div id="app">
+  <div id="app" class="min-h-screen flex flex-col">
     <!-- Show login view when not authenticated -->
     <LoginView v-if="!isAuthenticated" @login-success="handleLoginSuccess" />
 
     <!-- Show main app when authenticated -->
     <template v-else>
-      <header class="app-header">
-        <div class="header-left">
-          <router-link to="/" class="logo">TaskFlow</router-link>
+      <header class="app-header flex justify-between items-center px-8 h-[60px] bg-white border-b border-gray-light sticky top-0 z-100">
+        <div class="flex items-center">
+          <router-link to="/" class="logo text-3xl font-black text-black no-underline uppercase" style="letter-spacing: -0.5px">TaskFlow</router-link>
         </div>
-        <nav class="main-nav">
-          <router-link to="/" :class="{ active: isActive('/') && route.path === '/' }">
+        <nav class="main-nav flex gap-1">
+          <router-link
+            to="/"
+            class="main-nav-link px-4 py-2 text-black no-underline font-bold uppercase tracking-tight transition-none"
+            :class="{ 'bg-black text-white': isActive('/') && route.path === '/', 'hover:bg-gray-lighter': !(isActive('/') && route.path === '/') }">
             Dashboard
           </router-link>
-          <router-link to="/jobs" :class="{ active: isActive('/jobs') }">
+          <router-link
+            to="/jobs"
+            class="main-nav-link px-4 py-2 text-black no-underline font-bold uppercase tracking-tight transition-none"
+            :class="{ 'bg-black text-white': isActive('/jobs'), 'hover:bg-gray-lighter': !isActive('/jobs') }">
             Jobs
           </router-link>
-          <router-link to="/runs" :class="{ active: isActive('/runs') }">
+          <router-link
+            to="/runs"
+            class="main-nav-link px-4 py-2 text-black no-underline font-bold uppercase tracking-tight transition-none"
+            :class="{ 'bg-black text-white': isActive('/runs'), 'hover:bg-gray-lighter': !isActive('/runs') }">
             Runs
           </router-link>
         </nav>
-        <div class="header-right">
-          <span class="user-info">
+        <div class="header-right flex items-center gap-4">
+          <span class="user-info flex items-center gap-2 text-sm text-black font-bold">
             {{ currentUser?.username }}
-            <span v-if="currentUser?.role === 'admin'" class="role-badge">Admin</span>
+            <span v-if="currentUser?.role === 'admin'" class="role-badge inline-block bg-black text-white text-xs px-2 py-0.5 uppercase font-black tracking-tight border border-gray-light">Admin</span>
           </span>
-          <button @click="logout" class="btn btn-logout">Logout</button>
+          <button @click="logout" class="btn btn-small">Logout</button>
         </div>
       </header>
 
-      <main class="app-main">
+      <main class="flex-1 p-8 bg-white">
         <router-view />
       </main>
     </template>
@@ -73,146 +82,18 @@ function isActive(path) {
 </template>
 
 <style scoped>
-/* Uses global color variables from style.css */
-#app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 2rem;
-  height: 60px;
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-light);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.5rem;
-  font-weight: 900;
-  color: var(--black);
-  text-decoration: none;
-  letter-spacing: -0.5px;
-  text-transform: uppercase;
-}
-
-.logo:hover {
-  color: var(--black);
-}
-
-.main-nav {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.main-nav a {
-  color: var(--black);
-  text-decoration: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0;
-  font-weight: 700;
-  transition: none;
-  border: 2px solid transparent;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.main-nav a:hover {
-  color: var(--black);
-  background: var(--gray-lighter);
-  border: 1px solid var(--gray-light);
-}
-
-.main-nav a.active {
-  color: var(--white);
-  background: var(--black);
-  border: 1px solid var(--gray-light);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--black);
-  font-weight: 700;
-}
-
-.role-badge {
-  background: var(--black);
-  color: var(--white);
-  font-size: 0.625rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0;
-  text-transform: uppercase;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  border: 1px solid var(--gray-light);
-}
-
-.btn-logout {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  color: var(--black);
-  padding: 0.375rem 0.75rem;
-  border-radius: 0;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: none;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btn-logout:hover {
-  background: var(--black);
-  color: var(--white);
-  border: 1px solid var(--gray-light);
-}
-
-.app-main {
-  flex: 1;
-  padding: 2rem;
-  background: var(--white);
-}
-
+/* Responsive overrides for mobile */
 @media (max-width: 768px) {
   .app-header {
-    padding: 0 1rem;
-    flex-wrap: wrap;
-    height: auto;
-    gap: 0.5rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+    @apply flex-wrap h-auto gap-2 p-2;
   }
 
   .main-nav {
-    order: 3;
-    width: 100%;
-    justify-content: center;
-    padding-top: 0.5rem;
-    border-top: 3px solid var(--black);
+    @apply w-full justify-center py-2 border-t-4 border-black order-3;
   }
 
-  .app-main {
-    padding: 1rem;
+  main {
+    @apply p-4;
   }
 }
 </style>

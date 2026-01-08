@@ -49,18 +49,18 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
-        <h1>TaskFlow</h1>
-        <p v-if="checkingSetup">Loading...</p>
-        <p v-else-if="setupRequired">Create Admin Account</p>
-        <p v-else>Sign in to continue</p>
+  <div class="flex items-center justify-center min-h-screen bg-white p-4">
+    <div class="bg-white border-2 border-gray-light p-8 w-full max-w-[400px]">
+      <div class="text-center mb-8 pb-6 border-b border-gray-light">
+        <h1 class="text-4xl text-black m-0 mb-2 font-black uppercase tracking-tight">TaskFlow</h1>
+        <p v-if="checkingSetup" class="text-gray-medium m-0 font-bold">Loading...</p>
+        <p v-else-if="setupRequired" class="text-gray-medium m-0 font-bold">Create Admin Account</p>
+        <p v-else class="text-gray-medium m-0 font-bold">Sign in to continue</p>
       </div>
 
-      <form v-if="!checkingSetup" @submit.prevent="handleSubmit" class="login-form">
+      <form v-if="!checkingSetup" @submit.prevent="handleSubmit" class="flex flex-col gap-4">
         <div class="form-group">
-          <label for="username">Username</label>
+          <label for="username" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Username</label>
           <input
             id="username"
             v-model="username"
@@ -68,11 +68,12 @@ async function handleSubmit() {
             placeholder="Enter username"
             required
             :disabled="loading"
+            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
           />
         </div>
 
         <div v-if="setupRequired" class="form-group">
-          <label for="email">Email</label>
+          <label for="email" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Email</label>
           <input
             id="email"
             v-model="email"
@@ -80,11 +81,12 @@ async function handleSubmit() {
             placeholder="Enter email"
             required
             :disabled="loading"
+            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
           />
         </div>
 
         <div class="form-group">
-          <label for="password">Password</label>
+          <label for="password" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Password</label>
           <input
             id="password"
             v-model="password"
@@ -92,16 +94,17 @@ async function handleSubmit() {
             placeholder="Enter password"
             required
             :disabled="loading"
+            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
           />
         </div>
 
-        <div v-if="error" class="error-message">
+        <div v-if="error" class="bg-white text-black px-4 py-3 border border-gray-light text-sm text-center font-black">
           {{ error }}
         </div>
 
         <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="loading">
-            <span class="spinner"></span>
+            <span class="spinner-sm inline-block mr-2 align-middle"></span>
             {{ setupRequired ? 'Creating...' : 'Signing in...' }}
           </span>
           <span v-else>
@@ -110,147 +113,13 @@ async function handleSubmit() {
         </button>
       </form>
 
-      <div v-if="setupRequired && !checkingSetup" class="setup-notice">
-        <p>This is the first time setup. Create your admin account to get started.</p>
+      <div v-if="setupRequired && !checkingSetup" class="mt-6 p-4 bg-gray-lighter border border-gray-light text-center">
+        <p class="m-0 text-black text-sm font-bold">This is the first time setup. Create your admin account to get started.</p>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: var(--white);
-  padding: 1rem;
-}
-
-.login-card {
-  background: var(--white);
-  border-radius: 0;
-  border: 2px solid var(--gray-light);
-  box-shadow: none;
-  padding: 2rem;
-  width: 100%;
-  max-width: 400px;
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.login-header h1 {
-  font-size: 2rem;
-  color: var(--black);
-  margin: 0 0 0.5rem 0;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.login-header p {
-  color: var(--gray-medium);
-  margin: 0;
-  font-weight: 700;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  font-weight: 900;
-  color: var(--black);
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.form-group input {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  font-size: 1rem;
-  transition: none;
-  background: var(--white);
-  color: var(--black);
-  font-family: inherit;
-  font-weight: 500;
-}
-
-.form-group input:focus {
-  outline: none;
-  border: 1px solid var(--gray-light);
-  box-shadow: none;
-}
-
-.form-group input:disabled {
-  background: var(--gray-lighter);
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.error-message {
-  background: var(--white);
-  color: var(--black);
-  padding: 0.75rem 1rem;
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  font-size: 0.875rem;
-  text-align: center;
-  font-weight: 900;
-}
-
-.btn-block {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  font-size: 1rem;
-}
-
-.setup-notice {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: var(--gray-lighter);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  text-align: center;
-}
-
-.setup-notice p {
-  margin: 0;
-  color: var(--black);
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-right: 0.5rem;
-  vertical-align: middle;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* All styles now use Tailwind utilities in the template */
 </style>

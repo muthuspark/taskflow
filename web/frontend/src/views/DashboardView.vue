@@ -54,8 +54,8 @@ function goToJob(jobId) {
 </script>
 
 <template>
-  <div class="dashboard">
-    <h1>Dashboard</h1>
+  <div>
+    <h1 class="mb-6 text-black font-black uppercase tracking-tight">Dashboard</h1>
 
     <div v-if="loading" class="loading-container">
       <div class="spinner-large"></div>
@@ -69,27 +69,27 @@ function goToJob(jobId) {
 
     <template v-else>
       <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">{{ stats?.total_jobs || 0 }}</div>
-          <div class="stat-label">Total Jobs</div>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-8">
+        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
+          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.total_jobs || 0 }}</div>
+          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Total Jobs</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ stats?.active_jobs || 0 }}</div>
-          <div class="stat-label">Active Jobs</div>
+        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
+          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.active_jobs || 0 }}</div>
+          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Active Jobs</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ successRatePercent }}%</div>
-          <div class="stat-label">Success Rate</div>
+        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
+          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ successRatePercent }}%</div>
+          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Success Rate</div>
         </div>
-        <div class="stat-card running">
-          <div class="stat-value">{{ stats?.running_now || 0 }}</div>
-          <div class="stat-label">Running Now</div>
+        <div class="stat-card bg-black text-white border border-gray-light p-6 text-center hover:bg-black transition-none">
+          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.running_now || 0 }}</div>
+          <div class="text-sm text-white uppercase tracking-tight font-black">Running Now</div>
         </div>
       </div>
 
       <!-- Quick Actions -->
-      <div class="quick-actions">
+      <div class="flex gap-4 mb-8 flex-wrap">
         <router-link to="/jobs/new" class="btn btn-primary">
           Create New Job
         </router-link>
@@ -102,12 +102,12 @@ function goToJob(jobId) {
       </div>
 
       <!-- Recent Runs Table -->
-      <div class="recent-runs">
-        <h2>Recent Runs</h2>
+      <div class="bg-white border border-gray-light p-6">
+        <h2 class="m-0 mb-4 text-2xl text-black font-black uppercase tracking-tight pb-4 border-b border-gray-light">Recent Runs</h2>
         <div v-if="!stats?.recent_runs?.length" class="empty-state">
           <p>No recent runs found</p>
         </div>
-        <table v-else class="runs-table">
+        <table v-else class="w-full border-collapse">
           <thead>
             <tr>
               <th>Job</th>
@@ -143,176 +143,5 @@ function goToJob(jobId) {
 </template>
 
 <style scoped>
-.dashboard {
-  padding: 0;
-}
-
-.dashboard h1 {
-  margin: 0 0 1.5rem 0;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.loading-container,
-.error-container {
-  text-align: center;
-  padding: 3rem;
-}
-
-.spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-light);
-  border-top-color: var(--black);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container {
-  background: var(--white);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  color: var(--black);
-  font-weight: 900;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: var(--white);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  padding: 1.5rem;
-  text-align: center;
-  transition: none;
-}
-
-.stat-card:hover {
-  transform: none;
-  box-shadow: none;
-  background: var(--gray-lighter);
-}
-
-.stat-card.running {
-  background: var(--black);
-  color: var(--white);
-  border: 1px solid var(--gray-light);
-}
-
-.stat-card.running:hover {
-  background: var(--black);
-  box-shadow: none;
-}
-
-.stat-value {
-  font-size: 2.5rem;
-  font-weight: 900;
-  line-height: 1;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--gray-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 900;
-}
-
-.stat-card.running .stat-label {
-  color: var(--white);
-}
-
-.quick-actions {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-}
-
-.recent-runs {
-  background: var(--white);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  padding: 1.5rem;
-  box-shadow: none;
-}
-
-.recent-runs h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1.25rem;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: var(--gray-medium);
-}
-
-.runs-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.runs-table th,
-.runs-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border: 1px solid var(--gray-light);
-  font-size: 0.875rem;
-}
-
-.runs-table th {
-  font-weight: 900;
-  color: var(--white);
-  background-color: var(--black);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.runs-table tbody tr {
-  background: var(--white);
-}
-
-.runs-table tbody tr:nth-child(even) {
-  background: var(--gray-lighter);
-}
-
-.runs-table tbody tr:hover {
-  background: var(--gray-light);
-}
-
-.link {
-  color: var(--black);
-  text-decoration: underline;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.link:hover {
-  background: var(--black);
-  color: var(--white);
-  text-decoration: none;
-}
+/* All styles handled by Tailwind utilities and global CSS classes */
 </style>

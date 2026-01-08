@@ -45,7 +45,7 @@ func (s *Store) GetMetrics(runID string) ([]*Metric, error) {
 	}
 	defer rows.Close()
 
-	var metrics []*Metric
+	metrics := make([]*Metric, 0)
 	for rows.Next() {
 		m := &Metric{}
 		if err := rows.Scan(&m.ID, &m.RunID, &m.Timestamp, &m.CPUPercent, &m.MemoryBytes, &m.MemoryPercent); err != nil {

@@ -49,16 +49,7 @@ const displayText = computed(() => {
 </template>
 
 <style scoped>
-/* Status-specific overrides using global .status-badge base */
-.status-failure,
-.status-timeout {
-  font-weight: 900;
-}
-
-.status-running {
-  position: relative;
-}
-
+/* Only keep the animated dot for running status */
 .status-running::before {
   content: '';
   display: inline-block;
@@ -67,12 +58,11 @@ const displayText = computed(() => {
   background: currentColor;
   border-radius: 50%;
   margin-right: 0.375rem;
-  animation: none;
 }
 
 .status-cancelled {
-  background: var(--gray-lighter);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
+  background: #eeeeee;
+  color: #000000;
+  border-color: #cccccc;
 }
 </style>

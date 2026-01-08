@@ -36,33 +36,33 @@ function formatDate(dateStr) {
 </script>
 
 <template>
-  <div class="job-card" @click="handleClick">
-    <div class="job-header">
-      <h3 class="job-name">{{ job.name }}</h3>
+  <div class="job-card cursor-pointer flex flex-col gap-3 hover:bg-gray-lighter transition-colors" @click="handleClick">
+    <div class="flex justify-between items-start gap-3 pb-3 border-b border-gray-light">
+      <h3 class="m-0 text-xl text-black font-black uppercase tracking-tight break-words">{{ job.name }}</h3>
       <StatusBadge :status="statusText" />
     </div>
 
-    <p v-if="job.description" class="job-description">
+    <p v-if="job.description" class="job-description m-0 text-sm text-gray-medium leading-relaxed">
       {{ job.description }}
     </p>
-    <p v-else class="job-description empty">No description</p>
+    <p v-else class="m-0 text-sm text-gray-medium italic">No description</p>
 
-    <div class="job-meta">
-      <div class="meta-item">
-        <span class="meta-label">Timeout:</span>
-        <span class="meta-value">{{ job.timeout_seconds }}s</span>
+    <div class="flex flex-wrap gap-4 text-xs py-3 border-t border-black font-medium uppercase tracking-tight">
+      <div class="flex gap-1">
+        <span class="text-gray-dark font-black">Timeout:</span>
+        <span class="text-black font-black">{{ job.timeout_seconds }}s</span>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Retries:</span>
-        <span class="meta-value">{{ job.retry_count }}</span>
+      <div class="flex gap-1">
+        <span class="text-gray-dark font-black">Retries:</span>
+        <span class="text-black font-black">{{ job.retry_count }}</span>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Created:</span>
-        <span class="meta-value">{{ formatDate(job.created_at) }}</span>
+      <div class="flex gap-1">
+        <span class="text-gray-dark font-black">Created:</span>
+        <span class="text-black font-black">{{ formatDate(job.created_at) }}</span>
       </div>
     </div>
 
-    <div class="job-actions">
+    <div class="flex gap-2 mt-auto pt-3">
       <button @click="handleRun" class="btn btn-primary btn-small">
         Run Now
       </button>
@@ -74,84 +74,11 @@ function formatDate(dateStr) {
 </template>
 
 <style scoped>
-/* JobCard inherits card styling from global CSS */
-.job-card {
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.job-card:hover {
-  background: var(--gray-lighter);
-}
-
-.job-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.job-name {
-  margin: 0;
-  font-size: 1.125rem;
-  color: var(--black);
-  word-break: break-word;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
+/* Line clamping for description (2 lines max) */
 .job-description {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--gray-medium);
-  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.job-description.empty {
-  font-style: italic;
-  color: var(--gray-medium);
-}
-
-.job-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  font-size: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--black);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.meta-item {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.meta-label {
-  color: var(--gray-dark);
-  font-weight: 900;
-}
-
-.meta-value {
-  color: var(--black);
-  font-weight: 900;
-}
-
-.job-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: auto;
-  padding-top: 0.75rem;
 }
 </style>

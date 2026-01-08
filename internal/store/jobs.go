@@ -85,7 +85,7 @@ func (s *Store) ListJobs(createdBy *int) ([]*Job, error) {
 	}
 	defer rows.Close()
 
-	var jobs []*Job
+	jobs := make([]*Job, 0)
 	for rows.Next() {
 		job := &Job{}
 		if err := rows.Scan(

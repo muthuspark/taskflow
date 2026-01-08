@@ -42,7 +42,7 @@ func (s *Store) GetLogs(runID string) ([]*LogEntry, error) {
 	}
 	defer rows.Close()
 
-	var logs []*LogEntry
+	logs := make([]*LogEntry, 0)
 	for rows.Next() {
 		log := &LogEntry{}
 		if err := rows.Scan(&log.ID, &log.RunID, &log.Timestamp, &log.Stream, &log.Content); err != nil {

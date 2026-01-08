@@ -100,7 +100,7 @@ func (s *Store) ListUsers() ([]*User, error) {
 	}
 	defer rows.Close()
 
-	var users []*User
+	users := make([]*User, 0)
 	for rows.Next() {
 		user := &User{}
 		var lastLogin sql.NullTime

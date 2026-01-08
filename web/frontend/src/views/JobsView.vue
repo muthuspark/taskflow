@@ -60,9 +60,9 @@ function getStatusText(job) {
 </script>
 
 <template>
-  <div class="jobs-view">
-    <div class="page-header">
-      <h1>Jobs</h1>
+  <div>
+    <div class="page-header flex justify-between items-center mb-6">
+      <h1 class="m-0 text-black font-black uppercase tracking-tight">Jobs</h1>
       <button @click="goToCreate" class="btn btn-primary">
         Create New Job
       </button>
@@ -86,36 +86,36 @@ function getStatusText(job) {
       </button>
     </div>
 
-    <div v-else class="jobs-table-container">
-      <table class="jobs-table">
-        <thead>
+    <div v-else class="bg-white border border-gray-light overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead class="bg-gray-lighter border-b border-gray-light">
           <tr>
-            <th class="col-name">Job Name</th>
-            <th class="col-description">Description</th>
-            <th class="col-status">Status</th>
-            <th class="col-timeout">Timeout</th>
-            <th class="col-retries">Retries</th>
-            <th class="col-created">Created</th>
-            <th class="col-actions">Actions</th>
+            <th class="col-name px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Job Name</th>
+            <th class="col-description px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Description</th>
+            <th class="col-status px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Status</th>
+            <th class="col-timeout px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Timeout</th>
+            <th class="col-retries px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Retries</th>
+            <th class="col-created px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Created</th>
+            <th class="col-actions px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="job in jobs" :key="job.id" class="job-row" @click="goToJob(job.id)">
-            <td class="col-name">
-              <span class="job-name-text">{{ job.name }}</span>
+          <tr v-for="job in jobs" :key="job.id" class="border-b border-gray-light cursor-pointer hover:bg-gray-lighter transition-none" @click="goToJob(job.id)">
+            <td class="col-name px-4 py-4 text-black font-black uppercase tracking-tight border-r border-gray-light">
+              {{ job.name }}
             </td>
-            <td class="col-description">
+            <td class="col-description px-4 py-4 text-gray-medium border-r border-gray-light">
               <span v-if="job.description" class="description-text">{{ job.description }}</span>
-              <span v-else class="description-empty">No description</span>
+              <span v-else class="italic">No description</span>
             </td>
-            <td class="col-status">
+            <td class="col-status px-4 py-4 border-r border-gray-light">
               <StatusBadge :status="getStatusText(job)" />
             </td>
-            <td class="col-timeout">{{ job.timeout_seconds }}s</td>
-            <td class="col-retries">{{ job.retry_count }}</td>
-            <td class="col-created">{{ formatDate(job.created_at) }}</td>
-            <td class="col-actions" @click.stop>
-              <button @click="handleRun(job.id)" class="btn btn-primary btn-small">
+            <td class="col-timeout px-4 py-4 text-black border-r border-gray-light">{{ job.timeout_seconds }}s</td>
+            <td class="col-retries px-4 py-4 text-black border-r border-gray-light">{{ job.retry_count }}</td>
+            <td class="col-created px-4 py-4 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(job.created_at) }}</td>
+            <td class="col-actions px-4 py-4 whitespace-nowrap" @click.stop>
+              <button @click="handleRun(job.id)" class="btn btn-primary btn-small mr-2">
                 Run
               </button>
               <button @click="handleDelete(job.id)" class="btn btn-danger btn-small">
@@ -130,191 +130,20 @@ function getStatusText(job) {
 </template>
 
 <style scoped>
-.jobs-view {
-  padding: 0;
-}
+/* Column widths for table */
+.col-name { min-width: 150px; }
+.col-description { min-width: 200px; }
+.col-status { min-width: 100px; }
+.col-timeout { min-width: 80px; }
+.col-retries { min-width: 80px; }
+.col-created { min-width: 100px; }
+.col-actions { min-width: 140px; }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.loading-container {
-  text-align: center;
-  padding: 3rem;
-}
-
-.spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-light);
-  border-top-color: var(--black);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container {
-  text-align: center;
-  padding: 3rem;
-  background: var(--white);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-  color: var(--black);
-  font-weight: 900;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--white);
-  border-radius: 0;
-  border: 1px solid var(--gray-light);
-}
-
-.empty-state h2 {
-  margin: 0 0 0.5rem 0;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.empty-state p {
-  margin: 0 0 1.5rem 0;
-  color: var(--gray-medium);
-}
-
-.jobs-table-container {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  overflow-x: auto;
-}
-
-.jobs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.jobs-table thead {
-  background: var(--gray-lighter);
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.jobs-table th {
-  padding: 1rem;
-  text-align: left;
-  font-weight: 900;
-  color: var(--black);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.75rem;
-  border-right: 1px solid var(--gray-light);
-}
-
-.jobs-table th:last-child {
-  border-right: none;
-}
-
-.jobs-table tbody tr {
-  border-bottom: 1px solid var(--gray-light);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.jobs-table tbody tr:hover {
-  background: var(--gray-lighter);
-}
-
-.jobs-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.jobs-table td {
-  padding: 1rem;
-  border-right: 1px solid var(--gray-light);
-  color: var(--black);
-}
-
-.jobs-table td:last-child {
-  border-right: none;
-}
-
-.col-name {
-  min-width: 150px;
-  font-weight: 900;
-}
-
-.job-name-text {
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.col-description {
-  min-width: 200px;
-}
-
+/* Line clamping for description (1 line max) */
 .description-text {
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  color: var(--gray-medium);
-}
-
-.description-empty {
-  color: var(--gray-medium);
-  font-style: italic;
-}
-
-.col-status {
-  min-width: 100px;
-}
-
-.col-timeout {
-  min-width: 80px;
-}
-
-.col-retries {
-  min-width: 80px;
-}
-
-.col-created {
-  min-width: 100px;
-  color: var(--gray-medium);
-  font-size: 0.8125rem;
-}
-
-.col-actions {
-  min-width: 140px;
-  white-space: nowrap;
-}
-
-.btn-small {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
-  margin-right: 0.5rem;
-}
-
-.btn-small:last-child {
-  margin-right: 0;
 }
 </style>

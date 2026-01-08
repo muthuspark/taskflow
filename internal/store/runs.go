@@ -88,7 +88,7 @@ func (s *Store) ListRuns(jobID *string, limit int, offset int) ([]*Run, error) {
 	}
 	defer rows.Close()
 
-	var runs []*Run
+	runs := make([]*Run, 0)
 	for rows.Next() {
 		run := &Run{}
 		var exitCode sql.NullInt64

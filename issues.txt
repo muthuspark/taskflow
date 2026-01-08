@@ -1,0 +1,32 @@
+issue 1: 
+http://localhost:8080/api/runs/60561051-d646-4a0d-9c89-0d3398510920
+Request Method
+GET
+Status Code
+404 Not Found
+
+
+issue 2: 
+Request URL
+http://localhost:8080/api/runs?limit=50&offset=0
+Request Method
+GET
+Status Code
+500 Internal Server Error
+Remote Address
+[::1]:8080
+Referrer Policy
+strict-origin-when-cross-origin
+
+
+issue 3: 
+Request URL
+http://localhost:8080/api/dashboard/stats
+Request Method
+GET
+Status Code
+500 Internal Server Error
+Remote Address
+[::1]:8080
+Referrer Policy
+strict-origin-when-cross-origin
