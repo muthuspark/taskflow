@@ -134,7 +134,7 @@
   input[type="url"],
   textarea,
   select {
-    @apply w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium;
+    @apply w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-mono font-medium;
   }
 
   input:focus,
@@ -156,7 +156,7 @@
   }
 
   textarea {
-    @apply resize-vertical min-h-[100px] font-mono;
+    @apply resize-y min-h-[100px] font-mono;
   }
 
   .form-row {
@@ -502,7 +502,7 @@
 
   /* ============ CODE BLOCKS ============ */
   .script-editor {
-    @apply font-mono text-[0.8125rem] leading-relaxed resize-vertical;
+    @apply font-mono text-[0.8125rem] leading-relaxed resize-y;
   }
 
   .script-preview {
