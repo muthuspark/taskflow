@@ -120,7 +120,7 @@ function goToJob() {
 </script>
 
 <template>
-  <div class="run-detail">
+  <div>
     <div v-if="loading && !run" class="loading-container">
       <div class="spinner-large"></div>
       <p>Loading run details...</p>
@@ -133,17 +133,17 @@ function goToJob() {
 
     <template v-else-if="run">
       <!-- Header -->
-      <div class="page-header">
-        <div class="header-left">
-          <button @click="router.push('/runs')" class="btn btn-link">
+      <div class="flex justify-between items-start flex-wrap gap-4 mb-6">
+        <div class="flex flex-col gap-2">
+          <button @click="router.push('/runs')" class="bg-none border-none text-black p-0 cursor-pointer text-sm underline font-bold text-left">
             &larr; Back to Runs
           </button>
-          <h1>
-            Run Details
+          <div class="flex items-center gap-3">
+            <h1 class="m-0 text-black font-black uppercase tracking-tight">Run Details</h1>
             <StatusBadge :status="run.status" />
-          </h1>
+          </div>
         </div>
-        <div class="header-actions">
+        <div class="flex gap-2">
           <button @click="goToJob" class="btn btn-secondary">View Job</button>
           <button @click="refreshLogs" class="btn btn-secondary" :disabled="loading">
             Refresh
@@ -152,69 +152,67 @@ function goToJob() {
       </div>
 
       <!-- Run Info -->
-      <div class="info-card">
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="label">Job ID</span>
-            <span class="value">
-              <a @click.prevent="goToJob" href="#" class="link">{{ run.job_id }}</a>
+      <div class="bg-white border border-gray-light p-6 mb-6">
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Job ID</span>
+            <span class="text-sm text-black">
+              <a @click.prevent="goToJob" href="#" class="text-black underline font-bold cursor-pointer">{{ run.job_id }}</a>
             </span>
           </div>
-          <div class="info-item">
-            <span class="label">Status</span>
-            <span class="value"><StatusBadge :status="run.status" /></span>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Status</span>
+            <span class="text-sm"><StatusBadge :status="run.status" /></span>
           </div>
-          <div class="info-item">
-            <span class="label">Started</span>
-            <span class="value">{{ formatDate(run.started_at) }}</span>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Started</span>
+            <span class="text-sm text-gray-medium">{{ formatDate(run.started_at) }}</span>
           </div>
-          <div class="info-item">
-            <span class="label">Finished</span>
-            <span class="value">{{ formatDate(run.finished_at) }}</span>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Finished</span>
+            <span class="text-sm text-gray-medium">{{ formatDate(run.finished_at) }}</span>
           </div>
-          <div class="info-item">
-            <span class="label">Duration</span>
-            <span class="value">{{ formatDuration(run.duration_ms) }}</span>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Duration</span>
+            <span class="text-sm text-black">{{ formatDuration(run.duration_ms) }}</span>
           </div>
-          <div class="info-item">
-            <span class="label">Exit Code</span>
-            <span class="value" :class="{ 'exit-error': run.exit_code !== 0 }">
-              {{ run.exit_code ?? '-' }}
-            </span>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Exit Code</span>
+            <span class="text-sm text-black font-bold">{{ run.exit_code ?? '-' }}</span>
           </div>
-          <div class="info-item">
-            <span class="label">Trigger</span>
-            <span class="value trigger-badge" :class="run.trigger_type || 'manual'">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Trigger</span>
+            <span class="trigger-badge" :class="run.trigger_type || 'manual'">
               {{ run.trigger_type || 'manual' }}
             </span>
           </div>
-          <div v-if="run.error_message" class="info-item full-width">
-            <span class="label">Error</span>
-            <span class="value error-text">{{ run.error_message }}</span>
+          <div v-if="run.error_message" class="flex flex-col gap-1 col-span-full">
+            <span class="text-xs uppercase tracking-tight text-black font-black">Error</span>
+            <span class="text-sm text-black font-bold">{{ run.error_message }}</span>
           </div>
         </div>
       </div>
 
       <!-- Logs -->
-      <div class="logs-card">
-        <div class="logs-header">
-          <h2>Logs</h2>
-          <div class="logs-controls">
-            <label class="checkbox-label">
+      <div class="bg-white border border-gray-light overflow-hidden">
+        <div class="flex justify-between items-center p-6 border-b border-gray-light">
+          <h2 class="m-0 text-black font-black uppercase tracking-tight text-sm">Logs</h2>
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-2 text-sm text-black cursor-pointer font-bold">
               <input type="checkbox" v-model="autoScroll" />
               <span>Auto-scroll</span>
             </label>
-            <span v-if="wsConnected" class="ws-status connected">
+            <span v-if="wsConnected" class="ws-status connected text-xs px-2 py-1 border border-gray-light font-bold uppercase tracking-tight">
               Live streaming
             </span>
-            <span v-else-if="run.status === 'running'" class="ws-status disconnected">
+            <span v-else-if="run.status === 'running'" class="ws-status disconnected text-xs px-2 py-1 border border-gray-light font-bold uppercase tracking-tight">
               Reconnecting...
             </span>
           </div>
         </div>
 
         <div ref="logsContainer" class="logs-container">
-          <div v-if="!logs.length" class="empty-logs">
+          <div v-if="!logs.length" class="flex items-center justify-center min-h-[200px] text-gray-light">
             <p v-if="run.status === 'pending'">Waiting for job to start...</p>
             <p v-else-if="run.status === 'running'">Waiting for output...</p>
             <p v-else>No output captured</p>
@@ -240,246 +238,23 @@ function goToJob() {
 </template>
 
 <style scoped>
-.run-detail {
-  padding: 0;
-}
-
-.loading-container,
-.error-container {
-  text-align: center;
-  padding: 3rem;
-}
-
-.spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-light);
-  border-top-color: var(--black);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container {
-  background: var(--gray-lighter);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  color: var(--black);
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.header-left h1 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--black);
-  padding: 0;
-  cursor: pointer;
-  font-size: 0.875rem;
-  text-decoration: underline;
-  font-weight: 700;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.info-card {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  padding: 1.5rem;
-  box-shadow: none;
-  margin-bottom: 1.5rem;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-item.full-width {
-  grid-column: 1 / -1;
-}
-
-.info-item .label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--black);
-  font-weight: 900;
-}
-
-.info-item .value {
-  font-size: 0.875rem;
-  color: var(--black);
-}
-
-.exit-error {
-  color: var(--black);
-  font-weight: 900;
-}
-
-.error-text {
-  color: var(--black);
-  font-weight: 900;
-}
-
+/* Trigger badge styling */
 .trigger-badge {
   display: inline-block;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
   border: 1px solid var(--gray-light);
   border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  background: var(--white);
+  color: var(--black);
   width: fit-content;
-  background: var(--white);
-  color: var(--black);
-  font-weight: 700;
-}
-
-.trigger-badge.manual {
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
-}
-
-.trigger-badge.scheduled {
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
-}
-
-.link {
-  color: var(--black);
-  text-decoration: underline;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.logs-card {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.logs-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.logs-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.logs-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--black);
-  cursor: pointer;
-  font-weight: 700;
 }
 
 .ws-status {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-}
-
-.ws-status.connected {
   background: var(--white);
   color: var(--black);
 }
 
-.ws-status.disconnected {
-  background: var(--white);
-  color: var(--black);
-}
-
-.logs-container {
-  background: var(--gray-dark);
-  min-height: 400px;
-  max-height: 600px;
-  overflow: auto;
-  border-top: 2px solid var(--black);
-}
-
-.empty-logs {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  color: var(--gray-light);
-}
-
+/* Specialized log viewer styling - dark terminal theme */
 .log-entries {
   padding: 1rem;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
