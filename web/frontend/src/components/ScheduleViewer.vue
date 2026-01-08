@@ -77,93 +77,36 @@ const cronExpression = computed(() => {
 </script>
 
 <template>
-  <div class="schedule-viewer">
-    <div class="schedule-grid">
-      <div class="schedule-item">
-        <span class="label">Minutes</span>
-        <span class="value">{{ minutesDisplay }}</span>
+  <div class="flex flex-col gap-4">
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-3">
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-tight text-black font-black">Minutes</span>
+        <span class="text-sm text-black font-bold">{{ minutesDisplay }}</span>
       </div>
-      <div class="schedule-item">
-        <span class="label">Hours</span>
-        <span class="value">{{ hoursDisplay }}</span>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-tight text-black font-black">Hours</span>
+        <span class="text-sm text-black font-bold">{{ hoursDisplay }}</span>
       </div>
-      <div class="schedule-item">
-        <span class="label">Days</span>
-        <span class="value">{{ daysDisplay }}</span>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-tight text-black font-black">Days</span>
+        <span class="text-sm text-black font-bold">{{ daysDisplay }}</span>
       </div>
-      <div class="schedule-item">
-        <span class="label">Months</span>
-        <span class="value">{{ monthsDisplay }}</span>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-tight text-black font-black">Months</span>
+        <span class="text-sm text-black font-bold">{{ monthsDisplay }}</span>
       </div>
-      <div class="schedule-item">
-        <span class="label">Weekdays</span>
-        <span class="value">{{ weekdaysDisplay }}</span>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-tight text-black font-black">Weekdays</span>
+        <span class="text-sm text-black font-bold">{{ weekdaysDisplay }}</span>
       </div>
     </div>
-    <div class="cron-expression">
-      <span class="label">Cron:</span>
-      <code>{{ cronExpression }}</code>
+    <div class="flex items-center gap-2 pt-3 border-t-2 border-black">
+      <span class="text-xs uppercase text-black font-black">Cron:</span>
+      <code class="font-mono text-[0.8125rem] bg-gray-lighter px-2 py-1 border border-gray-light text-black font-bold">{{ cronExpression }}</code>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Uses global color variables and classes from style.css */
-.schedule-viewer {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.schedule-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.75rem;
-}
-
-.schedule-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.schedule-item .label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--black);
-  font-weight: 900;
-}
-
-.schedule-item .value {
-  font-size: 0.875rem;
-  color: var(--black);
-  font-weight: 700;
-}
-
-.cron-expression {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 2px solid var(--black);
-}
-
-.cron-expression .label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  color: var(--black);
-  font-weight: 900;
-}
-
-.cron-expression code {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.8125rem;
-  background: var(--gray-lighter);
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  color: var(--black);
-  font-weight: 700;
-}
+/* All styles handled by Tailwind utilities */
 </style>
