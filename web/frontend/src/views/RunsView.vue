@@ -79,19 +79,19 @@ function refresh() {
 </script>
 
 <template>
-  <div class="runs-view">
-    <div class="page-header">
-      <h1>Run History</h1>
+  <div>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="m-0 text-black font-black uppercase tracking-tight">Run History</h1>
       <button @click="refresh" class="btn btn-secondary" :disabled="loading">
         Refresh
       </button>
     </div>
 
     <!-- Filters -->
-    <div class="filters">
-      <div class="filter-group">
-        <label for="jobFilter">Filter by Job:</label>
-        <select id="jobFilter" v-model="selectedJobId" :disabled="loading">
+    <div class="bg-white border border-gray-light p-6 mb-6">
+      <div class="flex items-center gap-3">
+        <label for="jobFilter" class="font-black text-black text-sm uppercase tracking-tight">Filter by Job:</label>
+        <select id="jobFilter" v-model="selectedJobId" :disabled="loading" class="px-3 py-2 border border-gray-light text-sm">
           <option value="">All Jobs</option>
           <option v-for="job in jobs" :key="job.id" :value="job.id">
             {{ job.name }}
@@ -118,38 +118,38 @@ function refresh() {
     </div>
 
     <template v-else>
-      <div class="runs-table-container">
-        <table class="runs-table">
-          <thead>
+      <div class="bg-white border border-gray-light overflow-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead class="bg-gray-lighter border-b border-gray-light">
             <tr>
-              <th>Job</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Finished</th>
-              <th>Duration</th>
-              <th>Exit Code</th>
-              <th>Trigger</th>
-              <th></th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Job</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Started</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Finished</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Duration</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Exit Code</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Trigger</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="run in runs" :key="run.id">
-              <td>
-                <a @click.prevent="goToJob(run.job_id)" href="#" class="link">
+            <tr v-for="(run, index) in runs" :key="run.id" :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-lighter'" class="border-b border-gray-light hover:bg-gray-light">
+              <td class="px-4 py-3 border-r border-gray-light">
+                <a @click.prevent="goToJob(run.job_id)" href="#" class="text-black underline font-bold cursor-pointer">
                   {{ getJobName(run.job_id) }}
                 </a>
               </td>
-              <td><StatusBadge :status="run.status" /></td>
-              <td>{{ formatDate(run.started_at) }}</td>
-              <td>{{ formatDate(run.finished_at) }}</td>
-              <td>{{ formatDuration(run.duration_ms) }}</td>
-              <td>{{ run.exit_code ?? '-' }}</td>
-              <td>
+              <td class="px-4 py-3 border-r border-gray-light"><StatusBadge :status="run.status" /></td>
+              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.started_at) }}</td>
+              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.finished_at) }}</td>
+              <td class="px-4 py-3 text-black border-r border-gray-light">{{ formatDuration(run.duration_ms) }}</td>
+              <td class="px-4 py-3 text-black border-r border-gray-light">{{ run.exit_code ?? '-' }}</td>
+              <td class="px-4 py-3 border-r border-gray-light">
                 <span class="trigger-badge" :class="run.trigger_type || 'manual'">
                   {{ run.trigger_type || 'manual' }}
                 </span>
               </td>
-              <td>
+              <td class="px-4 py-3">
                 <button @click="goToRun(run.id)" class="btn btn-small">
                   View Logs
                 </button>
@@ -159,7 +159,7 @@ function refresh() {
         </table>
       </div>
 
-      <div v-if="runs.length >= limit" class="load-more">
+      <div v-if="runs.length >= limit" class="text-center py-6">
         <button @click="loadMore" class="btn btn-secondary" :disabled="loading">
           Load More
         </button>
@@ -169,167 +169,7 @@ function refresh() {
 </template>
 
 <style scoped>
-.runs-view {
-  padding: 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.filters {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  padding: 1rem 1.5rem;
-  box-shadow: none;
-  margin-bottom: 1.5rem;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.filter-group label {
-  font-weight: 900;
-  color: var(--black);
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.filter-group select {
-  padding: 0;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  font-size: 0.875rem;
-  min-width: 200px;
-}
-
-.loading-container {
-  text-align: center;
-  padding: 3rem;
-}
-
-.spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-light);
-  border-top-color: var(--black);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container {
-  text-align: center;
-  padding: 3rem;
-  background: var(--gray-lighter);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  color: var(--black);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.empty-state h2 {
-  margin: 0 0 0.5rem 0;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.empty-state p {
-  margin: 0 0 1.5rem 0;
-  color: var(--gray-dark);
-}
-
-.runs-table-container {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  box-shadow: none;
-  overflow: auto;
-}
-
-.runs-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 800px;
-}
-
-.runs-table th,
-.runs-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.runs-table th {
-  font-weight: 900;
-  color: var(--black);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--gray-lighter);
-  position: sticky;
-  top: 0;
-}
-
-.runs-table tbody tr {
-  background: var(--white);
-}
-
-.runs-table tbody tr:nth-child(even) {
-  background: var(--gray-lighter);
-}
-
-.runs-table tbody tr:hover {
-  background: var(--gray-light);
-}
-
-.runs-table tbody tr:last-child td {
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.link {
-  color: var(--black);
-  text-decoration: underline;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
+/* Trigger badge styling - component-specific states */
 .trigger-badge {
   display: inline-block;
   padding: 0.25rem 0.5rem;
@@ -343,26 +183,11 @@ function refresh() {
   font-weight: 700;
 }
 
-.trigger-badge.manual {
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
-}
-
-.trigger-badge.scheduled {
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
-}
-
+.trigger-badge.manual,
+.trigger-badge.scheduled,
 .trigger-badge.api {
   background: var(--white);
   color: var(--black);
   border: 1px solid var(--gray-light);
-}
-
-.load-more {
-  text-align: center;
-  padding: 1.5rem;
 }
 </style>
