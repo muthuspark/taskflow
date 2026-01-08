@@ -112,7 +112,7 @@ function formatDuration(ms) {
 </script>
 
 <template>
-  <div class="job-detail">
+  <div>
     <div v-if="loading && !job" class="loading-container">
       <div class="spinner-large"></div>
       <p>Loading job...</p>
@@ -125,15 +125,17 @@ function formatDuration(ms) {
 
     <template v-else-if="job">
       <!-- Header -->
-      <div class="page-header">
-        <div class="header-left">
-          <button @click="router.push('/jobs')" class="btn btn-link">
+      <div class="flex justify-between items-start flex-wrap gap-4 mb-6">
+        <div class="flex flex-col gap-2">
+          <button @click="router.push('/jobs')" class="bg-none border-none text-black p-0 cursor-pointer text-sm underline font-bold text-left">
             &larr; Back to Jobs
           </button>
-          <h1>{{ job.name }}</h1>
-          <StatusBadge :status="job.enabled ? 'enabled' : 'disabled'" />
+          <div class="flex items-center gap-3">
+            <h1 class="m-0 text-black font-black uppercase tracking-tight">{{ job.name }}</h1>
+            <StatusBadge :status="job.enabled ? 'enabled' : 'disabled'" />
+          </div>
         </div>
-        <div class="header-actions">
+        <div class="flex gap-2">
           <button @click="handleRun" class="btn btn-primary" :disabled="runningJob">
             <span v-if="runningJob">Running...</span>
             <span v-else>Run Now</span>
@@ -144,83 +146,83 @@ function formatDuration(ms) {
       </div>
 
       <!-- Job Info Cards -->
-      <div class="info-grid">
-        <div class="info-card">
-          <h3>Details</h3>
-          <div class="info-row">
-            <span class="label">Description:</span>
-            <span class="value">{{ job.description || 'No description' }}</span>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 mb-6">
+        <div class="bg-white border border-gray-light p-6">
+          <h3 class="m-0 mb-4 text-black font-black uppercase tracking-tight text-sm pb-2 border-b border-gray-light">Details</h3>
+          <div class="flex py-2 border-b border-gray-light last:border-b-0">
+            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Description:</span>
+            <span class="text-black">{{ job.description || 'No description' }}</span>
           </div>
-          <div class="info-row">
-            <span class="label">Timezone:</span>
-            <span class="value">{{ job.timezone || 'UTC' }}</span>
+          <div class="flex py-2 border-b border-gray-light last:border-b-0">
+            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Timezone:</span>
+            <span class="text-black">{{ job.timezone || 'UTC' }}</span>
           </div>
-          <div class="info-row">
-            <span class="label">Timeout:</span>
-            <span class="value">{{ job.timeout_seconds }}s</span>
+          <div class="flex py-2 border-b border-gray-light last:border-b-0">
+            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Timeout:</span>
+            <span class="text-black">{{ job.timeout_seconds }}s</span>
           </div>
-          <div class="info-row">
-            <span class="label">Retries:</span>
-            <span class="value">{{ job.retry_count }} (delay: {{ job.retry_delay_seconds }}s)</span>
+          <div class="flex py-2 border-b border-gray-light last:border-b-0">
+            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Retries:</span>
+            <span class="text-black">{{ job.retry_count }} (delay: {{ job.retry_delay_seconds }}s)</span>
           </div>
-          <div class="info-row">
-            <span class="label">Created:</span>
-            <span class="value">{{ formatDate(job.created_at) }}</span>
+          <div class="flex py-2 border-b border-gray-light last:border-b-0">
+            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Created:</span>
+            <span class="text-gray-medium text-[0.8125rem]">{{ formatDate(job.created_at) }}</span>
           </div>
         </div>
 
-        <div class="info-card">
-          <div class="card-header">
-            <h3>Schedule</h3>
+        <div class="bg-white border border-gray-light p-6">
+          <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-light">
+            <h3 class="m-0 text-black font-black uppercase tracking-tight text-sm">Schedule</h3>
             <button @click="showScheduleEditor = true" class="btn btn-small">
               {{ schedule ? 'Edit' : 'Add' }}
             </button>
           </div>
-          <div v-if="scheduleLoading" class="loading-small">Loading...</div>
+          <div v-if="scheduleLoading" class="text-gray-dark text-sm">Loading...</div>
           <div v-else-if="schedule">
             <ScheduleViewer :schedule="schedule" />
           </div>
-          <div v-else class="empty-schedule">
-            <p>No schedule configured</p>
-            <p class="hint">Job will only run when triggered manually</p>
+          <div v-else class="text-center py-4 text-gray-dark">
+            <p class="m-0">No schedule configured</p>
+            <p class="m-0 text-xs text-gray-medium">Job will only run when triggered manually</p>
           </div>
         </div>
       </div>
 
       <!-- Script Preview -->
-      <div class="script-card">
-        <h3>Script</h3>
+      <div class="bg-white border border-gray-light p-6 mb-6">
+        <h3 class="m-0 mb-4 text-black font-black uppercase tracking-tight text-sm pb-2 border-b border-gray-light">Script</h3>
         <pre class="script-preview">{{ job.script }}</pre>
       </div>
 
       <!-- Recent Runs -->
-      <div class="runs-card">
-        <div class="card-header">
-          <h3>Recent Runs</h3>
+      <div class="bg-white border border-gray-light p-6">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-light">
+          <h3 class="m-0 text-black font-black uppercase tracking-tight text-sm">Recent Runs</h3>
           <router-link :to="`/runs?job_id=${job.id}`" class="btn btn-small">
             View All
           </router-link>
         </div>
-        <div v-if="!runs.length" class="empty-runs">
+        <div v-if="!runs.length" class="text-center py-4 text-gray-dark">
           <p>No runs yet</p>
         </div>
-        <table v-else class="runs-table">
-          <thead>
+        <table v-else class="w-full border-collapse text-sm">
+          <thead class="bg-gray-lighter border-b border-gray-light">
             <tr>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Duration</th>
-              <th>Exit Code</th>
-              <th></th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Started</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Duration</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Exit Code</th>
+              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="run in runs" :key="run.id">
-              <td><StatusBadge :status="run.status" /></td>
-              <td>{{ formatDate(run.started_at) }}</td>
-              <td>{{ formatDuration(run.duration_ms) }}</td>
-              <td>{{ run.exit_code ?? '-' }}</td>
-              <td>
+            <tr v-for="(run, index) in runs" :key="run.id" :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-lighter'" class="border-b border-gray-light hover:bg-gray-light">
+              <td class="px-4 py-3 border-r border-gray-light"><StatusBadge :status="run.status" /></td>
+              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.started_at) }}</td>
+              <td class="px-4 py-3 text-black border-r border-gray-light">{{ formatDuration(run.duration_ms) }}</td>
+              <td class="px-4 py-3 text-black border-r border-gray-light">{{ run.exit_code ?? '-' }}</td>
+              <td class="px-4 py-3">
                 <button @click="goToRun(run.id)" class="btn btn-small">View</button>
               </td>
             </tr>
@@ -248,168 +250,7 @@ function formatDuration(ms) {
 </template>
 
 <style scoped>
-.job-detail {
-  padding: 0;
-}
-
-.loading-container,
-.error-container {
-  text-align: center;
-  padding: 3rem;
-}
-
-.spinner-large {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--gray-light);
-  border-top-color: var(--black);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container {
-  background: var(--gray-lighter);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  color: var(--black);
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.header-left h1 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--black);
-  padding: 0;
-  cursor: pointer;
-  font-size: 0.875rem;
-  text-decoration: underline;
-  font-weight: 700;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.info-card,
-.script-card,
-.runs-card {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  padding: 1.5rem;
-  box-shadow: none;
-}
-
-.info-card h3,
-.script-card h3,
-.runs-card h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1rem;
-  color: var(--black);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.card-header h3 {
-  margin: 0;
-}
-
-.info-row {
-  display: flex;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row .label {
-  font-weight: 900;
-  color: var(--black);
-  width: 100px;
-  flex-shrink: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.75rem;
-}
-
-.info-row .value {
-  color: var(--black);
-}
-
-.loading-small {
-  color: var(--gray-dark);
-  font-size: 0.875rem;
-}
-
-.empty-schedule,
-.empty-runs {
-  text-align: center;
-  padding: 1rem;
-  color: var(--gray-dark);
-}
-
-.empty-schedule .hint {
-  font-size: 0.75rem;
-  color: var(--gray-medium);
-}
-
-.script-card {
-  margin-bottom: 1.5rem;
-}
-
+/* Script preview - specialized dark theme styling */
 .script-preview {
   background: var(--gray-dark);
   color: var(--white);
@@ -423,42 +264,5 @@ function formatDuration(ms) {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
-}
-
-.runs-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.runs-table th,
-.runs-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--gray-light);
-}
-
-.runs-table th {
-  font-weight: 900;
-  color: var(--black);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--gray-lighter);
-}
-
-.runs-table tbody tr {
-  background: var(--white);
-}
-
-.runs-table tbody tr:nth-child(even) {
-  background: var(--gray-lighter);
-}
-
-.runs-table tbody tr:hover {
-  background: var(--gray-light);
-}
-
-.runs-table tbody tr:last-child td {
-  border-bottom: 1px solid var(--gray-light);
 }
 </style>
