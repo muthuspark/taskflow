@@ -207,9 +207,9 @@ function formatDuration(ms) {
           <p>No runs yet</p>
         </div>
         <table v-else class="w-full border-collapse text-sm">
-          <thead class="bg-gray-lighter border-b border-gray-light">
+          <thead class="border-b border-gray-light">
             <tr>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
+              <th class="px-4 py-3 text-left font-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
               <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Started</th>
               <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Duration</th>
               <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Exit Code</th>
