@@ -15,9 +15,7 @@ TEST_REPORT.md
 coverage.html
 
 # Go
-go.sum
 vendor/
-*.mod
 
 # Environment variables
 .env
