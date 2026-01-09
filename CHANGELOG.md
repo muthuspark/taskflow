@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub Pages landing page (`index.html`) for project showcase
+  - Clean, minimal design matching the application's W3Techs-inspired style
+  - Hero section with project description and download/GitHub links
+  - Screenshot preview, feature highlights, and quick-start guide
+  - Configuration reference table and technology stack overview
+  - Fully responsive design for mobile devices
+  - Single-file HTML with embedded CSS for easy deployment
 - TaskFlow UI screenshot in README.md for visual project preview
   - High-resolution PNG image (2662x1600) showcasing the W3Techs-inspired interface
   - Helps users understand the application appearance before installation
