@@ -49,3 +49,10 @@ Thumbs.db
 
 software_factory.sh
 commit_all.sh
+
+# Root level binary (dev builds)
+/taskflow
+/taskflow.pid
+
+# Generated reports
+web/report.html

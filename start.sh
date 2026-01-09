@@ -1,3 +1,4 @@
 make build
 export JWT_SECRET=$(openssl rand -hex 32)
-./bin/taskflow
+export API_BASE_PATH='/taskflow/api'
+./bin/taskflow start
