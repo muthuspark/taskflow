@@ -1,3 +1,5 @@
+import { API_BASE_PATH } from './api'
+
 /**
  * WebSocket client for streaming logs from a run
  */
@@ -22,7 +24,7 @@ export class LogStreamClient {
       const host = window.location.host
       const token = localStorage.getItem('token')
 
-      const url = `${protocol}//${host}/api/ws/logs?run_id=${this.runId}&token=${encodeURIComponent(token || '')}`
+      const url = `${protocol}//${host}${API_BASE_PATH}/ws/logs?run_id=${this.runId}&token=${encodeURIComponent(token || '')}`
 
       this.ws = new WebSocket(url)
 

@@ -1,4 +1,4 @@
-import api from './api'
+import api, { API_BASE_PATH } from './api'
 
 /**
  * Dashboard service for fetching dashboard statistics
@@ -9,7 +9,7 @@ const dashboardService = {
    * @returns {Promise<object>}
    */
   async getStats() {
-    const response = await api.get('/api/dashboard/stats')
+    const response = await api.get(`${API_BASE_PATH}/dashboard/stats`)
     return response.data.data
   }
 }

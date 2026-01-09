@@ -86,12 +86,13 @@ func main() {
 	})
 
 	// Create HTTP router (pass wsHub and scheduler for job processing)
-	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins, sched)
+	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins, sched, cfg.APIBasePath)
+	apiBasePath := cfg.APIBasePath
 
 	// Create main handler that combines router and file server
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route API, health, and setup requests to the router
-		if isAPIPath(r.URL.Path) {
+		if isAPIPath(r.URL.Path, apiBasePath) {
 			router.ServeHTTP(w, r)
 			return
 		}
@@ -197,12 +198,11 @@ func main() {
 }
 
 // isAPIPath checks if a path should be handled by the API router
-func isAPIPath(path string) bool {
+func isAPIPath(path string, apiBasePath string) bool {
 	return path == "/health" ||
 		path == "/setup/status" ||
 		strings.HasPrefix(path, "/setup/") ||
-		strings.HasPrefix(path, "/api/") ||
-		strings.HasPrefix(path, "/ws/")
+		strings.HasPrefix(path, apiBasePath+"/")
 }
 
 // isAssetPath checks if a path is likely an asset file

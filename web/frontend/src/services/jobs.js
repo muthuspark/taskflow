@@ -1,4 +1,4 @@
-import api from './api'
+import api, { API_BASE_PATH } from './api'
 
 /**
  * Jobs service for handling job operations
@@ -9,7 +9,7 @@ const jobsService = {
    * @returns {Promise<Array>}
    */
   async list() {
-    const response = await api.get('/api/jobs')
+    const response = await api.get(`${API_BASE_PATH}/jobs`)
     return response.data.data.jobs || []
   },
 
@@ -19,7 +19,7 @@ const jobsService = {
    * @returns {Promise<object>}
    */
   async get(id) {
-    const response = await api.get(`/api/jobs/${id}`)
+    const response = await api.get(`${API_BASE_PATH}/jobs/${id}`)
     return response.data.data
   },
 
@@ -29,7 +29,7 @@ const jobsService = {
    * @returns {Promise<object>}
    */
   async create(job) {
-    const response = await api.post('/api/jobs', job)
+    const response = await api.post(`${API_BASE_PATH}/jobs`, job)
     return response.data.data
   },
 
@@ -40,7 +40,7 @@ const jobsService = {
    * @returns {Promise<object>}
    */
   async update(id, job) {
-    const response = await api.put(`/api/jobs/${id}`, job)
+    const response = await api.put(`${API_BASE_PATH}/jobs/${id}`, job)
     return response.data.data
   },
 
@@ -50,7 +50,7 @@ const jobsService = {
    * @returns {Promise<void>}
    */
   async delete(id) {
-    await api.delete(`/api/jobs/${id}`)
+    await api.delete(`${API_BASE_PATH}/jobs/${id}`)
   },
 
   /**
@@ -59,7 +59,7 @@ const jobsService = {
    * @returns {Promise<object>} - Run object
    */
   async run(id) {
-    const response = await api.post(`/api/jobs/${id}/run`)
+    const response = await api.post(`${API_BASE_PATH}/jobs/${id}/run`)
     return response.data.data
   },
 
@@ -69,7 +69,7 @@ const jobsService = {
    * @returns {Promise<object>}
    */
   async getSchedule(id) {
-    const response = await api.get(`/api/jobs/${id}/schedule`)
+    const response = await api.get(`${API_BASE_PATH}/jobs/${id}/schedule`)
     return response.data.data
   },
 
@@ -80,7 +80,7 @@ const jobsService = {
    * @returns {Promise<object>}
    */
   async setSchedule(id, schedule) {
-    const response = await api.put(`/api/jobs/${id}/schedule`, schedule)
+    const response = await api.put(`${API_BASE_PATH}/jobs/${id}/schedule`, schedule)
     return response.data.data
   }
 }

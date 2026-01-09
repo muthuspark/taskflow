@@ -1,5 +1,9 @@
 import axios from 'axios'
 
+// Get API base path from environment variable or default to '/api'
+// In production, this can be set via VITE_API_BASE_PATH at build time
+const apiBasePath = import.meta.env.VITE_API_BASE_PATH || '/api'
+
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: '/',
@@ -8,6 +12,9 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
+
+// Export the base path for use in other services
+export const API_BASE_PATH = apiBasePath
 
 // Request interceptor to add Authorization header
 api.interceptors.request.use(

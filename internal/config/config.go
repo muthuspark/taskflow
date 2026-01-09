@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -16,6 +17,7 @@ type Config struct {
 	SMTPPassword      string
 	AllowedOrigins    string
 	LogRetentionDays  int
+	APIBasePath       string
 }
 
 func Load() *Config {
@@ -24,6 +26,7 @@ func Load() *Config {
 		DBPath:           "taskflow.db",
 		LogLevel:         "info",
 		LogRetentionDays: 30,
+		APIBasePath:      "/api",
 	}
 
 	if port := os.Getenv("PORT"); port != "" {
@@ -72,6 +75,15 @@ func Load() *Config {
 		if d, err := strconv.Atoi(days); err == nil {
 			cfg.LogRetentionDays = d
 		}
+	}
+
+	if basePath := os.Getenv("API_BASE_PATH"); basePath != "" {
+		// Ensure base path starts with / and doesn't end with /
+		if !strings.HasPrefix(basePath, "/") {
+			basePath = "/" + basePath
+		}
+		basePath = strings.TrimSuffix(basePath, "/")
+		cfg.APIBasePath = basePath
 	}
 
 	return cfg

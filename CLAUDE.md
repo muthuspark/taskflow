@@ -163,8 +163,11 @@ JWT_SECRET=<required>          # HMAC secret for JWT signing
 LOG_LEVEL=info                 # Logging verbosity
 LOG_RETENTION_DAYS=30          # Delete runs older than this
 ALLOWED_ORIGINS=*              # CORS allowed origins
+API_BASE_PATH=/api             # Base path for all API endpoints (e.g., /taskflow/api)
 SMTP_SERVER/PORT/USERNAME/PASSWORD  # Optional email notifications
 ```
+
+For frontend, set `VITE_API_BASE_PATH` at build time to match the backend's `API_BASE_PATH`.
 
 ## Testing Strategy
 

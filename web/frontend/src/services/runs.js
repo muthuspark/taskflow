@@ -1,4 +1,4 @@
-import api from './api'
+import api, { API_BASE_PATH } from './api'
 
 /**
  * Runs service for handling run operations
@@ -19,7 +19,7 @@ const runsService = {
     params.append('limit', limit.toString())
     params.append('offset', offset.toString())
 
-    const response = await api.get(`/api/runs?${params.toString()}`)
+    const response = await api.get(`${API_BASE_PATH}/runs?${params.toString()}`)
     return response.data.data.runs
   },
 
@@ -29,7 +29,7 @@ const runsService = {
    * @returns {Promise<object>}
    */
   async get(id) {
-    const response = await api.get(`/api/runs/${id}`)
+    const response = await api.get(`${API_BASE_PATH}/runs/${id}`)
     return response.data.data
   },
 
@@ -39,7 +39,7 @@ const runsService = {
    * @returns {Promise<Array>}
    */
   async getLogs(id) {
-    const response = await api.get(`/api/runs/${id}/logs`)
+    const response = await api.get(`${API_BASE_PATH}/runs/${id}/logs`)
     return response.data.data.logs
   }
 }
