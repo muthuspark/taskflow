@@ -1,0 +1,134 @@
+# TaskFlow - LLM Context File
+
+> A lightweight, self-hosted task scheduler with Go backend, SQLite storage, and Vue.js web UI.
+
+## Project Overview
+
+TaskFlow is a single-binary task scheduler for running shell scripts on a schedule. It features real-time log streaming, CPU/memory monitoring, and JWT-based authentication.
+
+## Tech Stack
+
+- **Backend**: Go 1.22+ with standard library HTTP server
+- **Database**: SQLite with automatic migrations
+- **Frontend**: Vue.js 3 + Vite + Pinia + Tailwind CSS
+- **Auth**: JWT with HS256 signing
+
+## Directory Structure
+
+```
+taskflow/
+├── cmd/taskflow/main.go      # Entry point, service commands, HTTP routing
+├── internal/
+│   ├── api/                  # HTTP handlers, middleware, WebSocket hub
+│   │   ├── handlers.go       # Job, run, auth, dashboard handlers
+│   │   ├── router.go         # Route registration
+│   │   ├── middleware.go     # CORS, auth, body limit middleware
+│   │   ├── websocket.go      # Real-time log streaming
+│   │   └── validator.go      # Request validation
+│   ├── auth/                 # JWT and password hashing
+│   ├── config/               # Environment variable loading
+│   ├── executor/             # Job execution, subprocess management
+│   ├── scheduler/            # Cron-like scheduling, job queue
+│   └── store/                # SQLite operations (jobs, runs, users, logs)
+├── web/frontend/             # Vue.js SPA
+│   └── src/
+│       ├── views/            # Page components
+│       ├── components/       # Reusable UI components
+│       ├── services/         # API clients (api.js, jobs.js, runs.js)
+│       └── stores/           # Pinia state management
+├── CLAUDE.md                 # Development guidance
+├── README.md                 # User documentation
+└── CHANGELOG.md              # Version history
+```
+
+## Key Files for Understanding the Codebase
+
+1. `cmd/taskflow/main.go` - Application bootstrap, service commands (start/stop/status)
+2. `internal/api/handlers.go` - All HTTP endpoint implementations
+3. `internal/api/router.go` - Route definitions and middleware wiring
+4. `internal/executor/executor.go` - How jobs are executed as subprocesses
+5. `internal/scheduler/scheduler.go` - How cron schedules are evaluated
+6. `internal/store/sqlite.go` - Database schema and migrations
+7. `web/frontend/src/services/api.js` - Frontend API configuration
+
+## Architecture Decisions
+
+### Sequential Job Execution
+Jobs run one at a time in FIFO order to prevent resource contention on single-server deployments.
+
+### Bootstrap Mode
+First run with no users enables `/setup/admin` endpoint for initial admin creation without auth.
+
+### Runtime Configuration
+Frontend fetches API base path from `/taskflow-app/config` at startup, enabling reverse proxy deployments without rebuild.
+
+### PID File Management
+Both foreground and daemon modes write PID files for process management.
+
+## Common Commands
+
+```bash
+make build          # Build frontend + backend
+make test           # Run all tests
+./bin/taskflow      # Start in foreground
+./bin/taskflow start   # Start as daemon
+./bin/taskflow stop    # Stop daemon
+./bin/taskflow status  # Check if running
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| PORT | 8080 | HTTP listen port |
+| DB_PATH | taskflow.db | SQLite database path |
+| JWT_SECRET | (auto-generated) | JWT signing secret |
+| API_BASE_PATH | /api | API route prefix |
+| LOG_RETENTION_DAYS | 30 | Days to keep run logs |
+| ALLOWED_ORIGINS | * | CORS allowed origins |
+
+## API Patterns
+
+All API responses follow this structure:
+```json
+{
+  "status": "success|error",
+  "data": { ... },
+  "error": "error message if status=error"
+}
+```
+
+Protected endpoints require `Authorization: Bearer <token>` header.
+
+## Database Schema (SQLite)
+
+- `users` - User accounts with roles (admin/user)
+- `jobs` - Job definitions (name, script, timeout, retries)
+- `schedules` - Cron-like rules (minutes, hours, days, months, weekdays)
+- `runs` - Execution history (status, exit_code, started_at, finished_at)
+- `logs` - Streaming output (run_id, stream, content, timestamp)
+- `metrics` - CPU/memory samples during execution
+
+## Testing
+
+Tests use in-memory SQLite for isolation. Run with:
+```bash
+go test ./...                    # All tests
+go test -v ./internal/api        # Specific package
+go test -v ./... -run TestName   # Specific test
+```
+
+## When Modifying This Codebase
+
+1. **Adding API endpoints**: Update `internal/api/handlers.go` and `internal/api/router.go`
+2. **Adding store operations**: Update relevant file in `internal/store/`
+3. **Frontend changes**: Update files in `web/frontend/src/`, run `make build-frontend`
+4. **Scheduler logic**: See `internal/scheduler/scheduler.go` and `matcher.go`
+5. **Configuration**: Update `internal/config/config.go` and document in README
+
+## Important Constraints
+
+- Jobs execute sequentially (no parallelism)
+- SQLite is the only supported database
+- Frontend is embedded in the binary (no separate deployment)
+- WebSocket used for real-time logs (no polling)
