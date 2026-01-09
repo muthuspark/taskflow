@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- TaskFlow UI screenshot in README.md for visual project preview
+  - High-resolution PNG image (2662x1600) showcasing the W3Techs-inspired interface
+  - Helps users understand the application appearance before installation
+
 ### Changed
 - Complete frontend UI redesign from lo-fi monochrome to W3Techs-inspired style
   - Replaced ultra-minimal black/white Tailwind design with cleaner traditional interface
