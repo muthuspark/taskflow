@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow - Lightweight Self-Hosted Task Scheduler</title>
+  <meta name="description" content="TaskFlow is a lightweight, self-hosted task scheduler with cron-like scheduling, real-time logs, and a clean web interface. Single binary deployment.">
+  <style>
+    /* TaskFlow Landing Page - W3Techs Style */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --blue-light: #bcd4ec;
+      --blue-header: #99c2e5;
+      --blue-nav: #cce0f0;
+      --blue-accent: #6699cc;
+      --gray-border: #999999;
+      --gray-light: #cccccc;
+      --gray-row: #f4f4f4;
+      --white: #ffffff;
+      --black: #000000;
+      --text-dark: #333333;
+      --link-blue: #0066cc;
+    }
+
+    html {
+      font-size: 13px;
+    }
+
+    body {
+      font-family: Verdana, Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-dark);
+      background-color: var(--white);
+    }
+
+    a {
+      color: var(--link-blue);
+      text-decoration: underline;
+    }
+
+    a:hover {
+      text-decoration: none;
+    }
+
+    /* Top Border */
+    .top-border {
+      height: 3px;
+      background: linear-gradient(to right, var(--blue-accent), var(--blue-light));
+    }
+
+    /* Header */
+    .site-header {
+      background-color: var(--white);
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .header-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: bold;
+      color: var(--text-dark);
+      text-decoration: none;
+    }
+
+    .logo:hover {
+      text-decoration: none;
+    }
+
+    .header-nav {
+      display: flex;
+      gap: 20px;
+    }
+
+    .header-nav a {
+      color: var(--text-dark);
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .header-nav a:hover {
+      text-decoration: underline;
+    }
+
+    /* Hero Section */
+    .hero {
+      background-color: var(--blue-light);
+      border-bottom: 1px solid var(--gray-border);
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .hero-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--text-dark);
+      margin-bottom: 15px;
+    }
+
+    .hero p {
+      font-size: 15px;
+      color: var(--text-dark);
+      margin-bottom: 25px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: Verdana, Arial, sans-serif;
+      font-size: 13px;
+      padding: 8px 20px;
+      border: 1px solid var(--gray-border);
+      background-color: var(--white);
+      color: var(--text-dark);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn:hover {
+      background-color: var(--gray-row);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background-color: var(--blue-accent);
+      border-color: var(--blue-accent);
+      color: var(--white);
+    }
+
+    .btn-primary:hover {
+      background-color: #5588bb;
+    }
+
+    /* Main Content */
+    .main-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 30px 20px;
+    }
+
+    /* Screenshot Section */
+    .screenshot-section {
+      margin-bottom: 40px;
+    }
+
+    .screenshot-section h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .screenshot-wrapper {
+      border: 1px solid var(--gray-border);
+      padding: 10px;
+      background-color: var(--gray-row);
+    }
+
+    .screenshot-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid var(--gray-light);
+    }
+
+    /* Features Section */
+    .features-section {
+      margin-bottom: 40px;
+    }
+
+    .features-section h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-box {
+      border: 1px solid var(--gray-border);
+      background-color: var(--white);
+    }
+
+    .feature-header {
+      background-color: var(--blue-light);
+      padding: 10px 15px;
+      font-weight: bold;
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .feature-body {
+      padding: 15px;
+      font-size: 12px;
+    }
+
+    .feature-body ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .feature-body li {
+      margin-bottom: 6px;
+    }
+
+    /* Quick Start Section */
+    .quickstart-section {
+      margin-bottom: 40px;
+    }
+
+    .quickstart-section h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .code-block {
+      background-color: #fafafa;
+      border: 1px solid var(--gray-border);
+      padding: 15px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      margin-bottom: 15px;
+    }
+
+    .code-block code {
+      display: block;
+      white-space: pre;
+    }
+
+    .code-comment {
+      color: #666666;
+    }
+
+    .code-command {
+      color: var(--text-dark);
+    }
+
+    /* Info Table */
+    .info-table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 15px 0;
+      font-size: 12px;
+    }
+
+    .info-table th,
+    .info-table td {
+      border: 1px solid var(--gray-border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .info-table th {
+      background-color: var(--blue-header);
+      font-weight: normal;
+    }
+
+    .info-table tbody tr:nth-child(odd) {
+      background-color: var(--white);
+    }
+
+    .info-table tbody tr:nth-child(even) {
+      background-color: var(--gray-row);
+    }
+
+    /* Tech Stack */
+    .tech-section {
+      margin-bottom: 40px;
+    }
+
+    .tech-section h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--gray-border);
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .tech-item {
+      border: 1px solid var(--gray-border);
+      padding: 15px;
+      text-align: center;
+      background-color: var(--white);
+    }
+
+    .tech-item strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .tech-item span {
+      font-size: 11px;
+      color: #666666;
+    }
+
+    /* Footer */
+    .site-footer {
+      background-color: var(--gray-row);
+      border-top: 1px solid var(--gray-border);
+      padding: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: #666666;
+    }
+
+    .footer-links {
+      margin-bottom: 10px;
+    }
+
+    .footer-links a {
+      margin: 0 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .hero h1 {
+        font-size: 22px;
+      }
+
+      .hero p {
+        font-size: 13px;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tech-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-border"></div>
+
+  <header class="site-header">
+    <div class="header-container">
+      <a href="/" class="logo">TaskFlow</a>
+      <nav class="header-nav">
+        <a href="#features">Features</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="https://github.com/muthuspark/taskflow">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-container">
+      <h1>Lightweight Self-Hosted Task Scheduler</h1>
+      <p>Schedule and execute tasks with cron-like scheduling, real-time log streaming, and resource monitoring. Single binary deployment with SQLite storage.</p>
+      <div class="hero-buttons">
+        <a href="https://github.com/muthuspark/taskflow/releases" class="btn btn-primary">Download</a>
+        <a href="https://github.com/muthuspark/taskflow" class="btn">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <main class="main-container">
+    <section class="screenshot-section">
+      <h2>Interface Preview</h2>
+      <div class="screenshot-wrapper">
+        <img src="image.png" alt="TaskFlow Dashboard showing job list and execution history">
+      </div>
+    </section>
+
+    <section id="features" class="features-section">
+      <h2>Features</h2>
+      <div class="features-grid">
+        <div class="feature-box">
+          <div class="feature-header">Job Scheduling</div>
+          <div class="feature-body">
+            <ul>
+              <li>Flexible cron-like scheduling</li>
+              <li>Timezone support per job</li>
+              <li>Timeout and retry configuration</li>
+              <li>Sequential execution queue</li>
+            </ul>
+          </div>
+        </div>
+        <div class="feature-box">
+          <div class="feature-header">Script Execution</div>
+          <div class="feature-body">
+            <ul>
+              <li>Bash script execution</li>
+              <li>Real-time log streaming via WebSocket</li>
+              <li>Exit code tracking</li>
+              <li>Automatic log retention</li>
+            </ul>
+          </div>
+        </div>
+        <div class="feature-box">
+          <div class="feature-header">Monitoring</div>
+          <div class="feature-body">
+            <ul>
+              <li>CPU and memory metrics</li>
+              <li>Execution history</li>
+              <li>Success/failure statistics</li>
+              <li>Run duration tracking</li>
+            </ul>
+          </div>
+        </div>
+        <div class="feature-box">
+          <div class="feature-header">Authentication</div>
+          <div class="feature-body">
+            <ul>
+              <li>JWT-based authentication</li>
+              <li>Admin and user roles</li>
+              <li>Bootstrap mode for first setup</li>
+              <li>Auto-generated JWT secrets</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="quickstart" class="quickstart-section">
+      <h2>Quick Start</h2>
+      <div class="code-block">
+        <code><span class="code-comment"># Clone the repository</span>
+<span class="code-command">git clone https://github.com/muthuspark/taskflow.git</span>
+<span class="code-command">cd taskflow</span>
+
+<span class="code-comment"># Build the application</span>
+<span class="code-command">make build</span>
+
+<span class="code-comment"># Run (JWT_SECRET auto-generated if not set)</span>
+<span class="code-command">make run</span>
+
+<span class="code-comment"># Access the web interface</span>
+<span class="code-comment"># http://localhost:8080</span></code>
+      </div>
+
+      <h3 style="font-size: 14px; margin: 20px 0 10px;">Configuration</h3>
+      <table class="info-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Default</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PORT</td>
+            <td>8080</td>
+            <td>HTTP listen port</td>
+          </tr>
+          <tr>
+            <td>DB_PATH</td>
+            <td>taskflow.db</td>
+            <td>SQLite database file path</td>
+          </tr>
+          <tr>
+            <td>JWT_SECRET</td>
+            <td>(auto-generated)</td>
+            <td>Secret for JWT signing</td>
+          </tr>
+          <tr>
+            <td>LOG_RETENTION_DAYS</td>
+            <td>30</td>
+            <td>Days to keep run history</td>
+          </tr>
+          <tr>
+            <td>API_BASE_PATH</td>
+            <td>/api</td>
+            <td>Base path for API endpoints</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="tech-section">
+      <h2>Technology Stack</h2>
+      <div class="tech-grid">
+        <div class="tech-item">
+          <strong>Go</strong>
+          <span>Backend &amp; API</span>
+        </div>
+        <div class="tech-item">
+          <strong>SQLite</strong>
+          <span>Database</span>
+        </div>
+        <div class="tech-item">
+          <strong>Vue.js</strong>
+          <span>Frontend SPA</span>
+        </div>
+        <div class="tech-item">
+          <strong>WebSocket</strong>
+          <span>Real-time Logs</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-links">
+      <a href="https://github.com/muthuspark/taskflow">GitHub</a>
+      <a href="https://github.com/muthuspark/taskflow/issues">Issues</a>
+      <a href="https://github.com/muthuspark/taskflow/releases">Releases</a>
+    </div>
+    <p>TaskFlow - Open Source Task Scheduler</p>
+  </footer>
+</body>
+</html>
