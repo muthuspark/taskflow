@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,9 +26,14 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Validate required config
+	// Auto-generate JWT secret if not provided
 	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET environment variable is required")
+		secret := make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			log.Fatalf("Failed to generate JWT secret: %v", err)
+		}
+		cfg.JWTSecret = hex.EncodeToString(secret)
+		log.Println("Warning: JWT_SECRET not set, generated random secret. Sessions will not persist across restarts.")
 	}
 
 	// Initialize database
