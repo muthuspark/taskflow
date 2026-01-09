@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Service-style daemon commands for production deployments:
+  - `./taskflow` - Start in foreground (useful for Docker/debugging)
+  - `./taskflow start` - Start as background daemon with PID file
+  - `./taskflow stop` - Gracefully stop running daemon
+  - `./taskflow status` - Check if TaskFlow is running
+  - `./taskflow help` - Show usage information
+- Auto-generated JWT secret when `JWT_SECRET` env var is not set
+  - Generates secure 32-byte random secret at startup
+  - Warning logged that sessions won't persist across restarts
+- Runtime API base path configuration via `/taskflow-app/config` endpoint
+  - Frontend fetches config at startup, no rebuild needed
+  - Useful for reverse proxy deployments at custom subpaths
+  - Set `API_BASE_PATH` env var on backend only
 - Schedule selection during job creation with preset options:
   - Daily at 9 AM (default), Hourly, Daily at midnight
   - Weekdays at 9 AM, Weekly on Monday, Monthly on 1st

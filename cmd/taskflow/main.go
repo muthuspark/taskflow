@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -22,7 +24,45 @@ import (
 	"github.com/taskflow/taskflow/internal/store"
 )
 
+const pidFileName = "taskflow.pid"
+
 func main() {
+	// Handle service commands
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "start":
+			startDaemon()
+			return
+		case "stop":
+			stopDaemon()
+			return
+		case "status":
+			checkStatus()
+			return
+		case "help", "-h", "--help":
+			printUsage()
+			return
+		default:
+			fmt.Printf("Unknown command: %s\n", os.Args[1])
+			printUsage()
+			os.Exit(1)
+		}
+	}
+
+	// Check if already running (unless we're the daemon process)
+	isDaemon := os.Getenv("TASKFLOW_DAEMON") == "1"
+	if !isDaemon {
+		if pid, err := readPID(); err == nil && isProcessRunning(pid) {
+			log.Fatalf("TaskFlow is already running (PID: %d). Use './taskflow stop' first.", pid)
+		}
+	}
+
+	// Always write PID file (both foreground and daemon modes)
+	if err := writePIDFile(); err != nil {
+		log.Fatalf("Failed to write PID file: %v", err)
+	}
+	defer removePIDFile()
+
 	// Load configuration
 	cfg := config.Load()
 
@@ -207,6 +247,7 @@ func main() {
 // isAPIPath checks if a path should be handled by the API router
 func isAPIPath(path string, apiBasePath string) bool {
 	return path == "/health" ||
+		strings.HasPrefix(path, "/taskflow-app/") ||
 		path == "/setup/status" ||
 		strings.HasPrefix(path, "/setup/") ||
 		strings.HasPrefix(path, apiBasePath+"/")
@@ -223,4 +264,163 @@ func isAssetPath(path string) bool {
 		".svg": true, ".jpg": true, ".jpeg": true,
 	}
 	return validExts[filepath.Ext(path)]
+}
+
+// getPIDFilePath returns the path to the PID file
+func getPIDFilePath() string {
+	// Use executable directory for PID file
+	execPath, err := os.Executable()
+	if err != nil {
+		return pidFileName
+	}
+	return filepath.Join(filepath.Dir(execPath), pidFileName)
+}
+
+// writePIDFile writes the current process ID to the PID file
+func writePIDFile() error {
+	pidPath := getPIDFilePath()
+	return os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0644)
+}
+
+// removePIDFile removes the PID file
+func removePIDFile() {
+	os.Remove(getPIDFilePath())
+}
+
+// readPID reads the PID from the PID file
+func readPID() (int, error) {
+	pidPath := getPIDFilePath()
+	data, err := os.ReadFile(pidPath)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(string(data)))
+}
+
+// isProcessRunning checks if a process with the given PID is running
+func isProcessRunning(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	// On Unix, FindProcess always succeeds, so we need to send signal 0 to check
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+// startDaemon starts TaskFlow as a background daemon
+func startDaemon() {
+	// Check if already running
+	if pid, err := readPID(); err == nil {
+		if isProcessRunning(pid) {
+			fmt.Printf("TaskFlow is already running (PID: %d)\n", pid)
+			os.Exit(1)
+		}
+		// Stale PID file, remove it
+		removePIDFile()
+	}
+
+	// Get the executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		fmt.Printf("Failed to get executable path: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Start the process in background
+	cmd := exec.Command(execPath)
+	cmd.Env = append(os.Environ(), "TASKFLOW_DAEMON=1")
+
+	// Detach from terminal
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	// Start the process
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("Failed to start TaskFlow: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Don't wait for the child process
+	fmt.Printf("TaskFlow started (PID: %d)\n", cmd.Process.Pid)
+}
+
+// stopDaemon stops the running TaskFlow daemon
+func stopDaemon() {
+	pid, err := readPID()
+	if err != nil {
+		fmt.Println("TaskFlow is not running (no PID file found)")
+		os.Exit(1)
+	}
+
+	if !isProcessRunning(pid) {
+		fmt.Printf("TaskFlow is not running (stale PID: %d)\n", pid)
+		removePIDFile()
+		os.Exit(1)
+	}
+
+	// Send SIGTERM to gracefully stop
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		fmt.Printf("Failed to find process: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := process.Signal(syscall.SIGTERM); err != nil {
+		fmt.Printf("Failed to stop TaskFlow: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Wait for process to stop (with timeout)
+	fmt.Printf("Stopping TaskFlow (PID: %d)...\n", pid)
+	for i := 0; i < 30; i++ {
+		time.Sleep(100 * time.Millisecond)
+		if !isProcessRunning(pid) {
+			fmt.Println("TaskFlow stopped")
+			return
+		}
+	}
+
+	fmt.Println("TaskFlow did not stop in time, sending SIGKILL...")
+	process.Signal(syscall.SIGKILL)
+	time.Sleep(100 * time.Millisecond)
+	fmt.Println("TaskFlow killed")
+}
+
+// checkStatus checks if TaskFlow is running
+func checkStatus() {
+	pid, err := readPID()
+	if err != nil {
+		fmt.Println("TaskFlow is not running")
+		os.Exit(1)
+	}
+
+	if isProcessRunning(pid) {
+		fmt.Printf("TaskFlow is running (PID: %d)\n", pid)
+	} else {
+		fmt.Printf("TaskFlow is not running (stale PID file: %d)\n", pid)
+		removePIDFile()
+		os.Exit(1)
+	}
+}
+
+// printUsage prints the usage information
+func printUsage() {
+	fmt.Println("TaskFlow - Lightweight Task Scheduler")
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  taskflow          Start TaskFlow in foreground")
+	fmt.Println("  taskflow start    Start TaskFlow as a background daemon")
+	fmt.Println("  taskflow stop     Stop the running TaskFlow daemon")
+	fmt.Println("  taskflow status   Check if TaskFlow is running")
+	fmt.Println("  taskflow help     Show this help message")
+	fmt.Println()
+	fmt.Println("Environment Variables:")
+	fmt.Println("  PORT              HTTP listen port (default: 8080)")
+	fmt.Println("  DB_PATH           SQLite database path (default: taskflow.db)")
+	fmt.Println("  JWT_SECRET        JWT signing secret (auto-generated if not set)")
+	fmt.Println("  API_BASE_PATH     API base path (default: /api)")
+	fmt.Println("  LOG_RETENTION_DAYS  Days to keep run logs (default: 30)")
+	fmt.Println("  ALLOWED_ORIGINS   CORS allowed origins (default: *)")
 }

@@ -28,6 +28,14 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	// Health check (no auth required)
 	mux.HandleFunc("GET /health", Health)
 
+	// Config endpoint (no auth required) - provides runtime config to frontend
+	// Uses /taskflow-app prefix to avoid conflicts with other services behind nginx
+	mux.HandleFunc("GET /taskflow-app/config", func(w http.ResponseWriter, r *http.Request) {
+		WriteJSON(w, http.StatusOK, map[string]string{
+			"api_base_path": apiBasePath,
+		})
+	})
+
 	// Setup endpoints (no auth required for initial setup)
 	mux.HandleFunc("GET /setup/status", authHandlers.SetupStatus)
 	mux.Handle("POST /setup/admin", bodyLimitMw(http.HandlerFunc(authHandlers.CreateFirstAdmin)))

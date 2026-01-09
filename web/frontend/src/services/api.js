@@ -1,8 +1,7 @@
 import axios from 'axios'
 
-// Get API base path from environment variable or default to '/api'
-// In production, this can be set via VITE_API_BASE_PATH at build time
-const apiBasePath = import.meta.env.VITE_API_BASE_PATH || '/api'
+// API base path - will be loaded from backend config
+let apiBasePath = import.meta.env.VITE_API_BASE_PATH || '/api'
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -13,8 +12,26 @@ const api = axios.create({
   }
 })
 
-// Export the base path for use in other services
-export const API_BASE_PATH = apiBasePath
+// Export getter for the base path (allows dynamic updates)
+export let API_BASE_PATH = apiBasePath
+
+/**
+ * Initialize API configuration from backend
+ * This should be called once at app startup
+ */
+export async function initApiConfig() {
+  try {
+    const response = await axios.get('/taskflow-app/config')
+    if (response.data?.data?.api_base_path) {
+      apiBasePath = response.data.data.api_base_path
+      API_BASE_PATH = apiBasePath
+    }
+  } catch (error) {
+    // Use default if config endpoint fails
+    console.warn('Failed to load API config, using default:', apiBasePath)
+  }
+  return apiBasePath
+}
 
 // Request interceptor to add Authorization header
 api.interceptors.request.use(

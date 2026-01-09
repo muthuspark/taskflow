@@ -27,12 +27,31 @@ A lightweight, self-hosted task scheduler with a Go backend, SQLite storage, and
 # Build frontend and backend
 make build
 
-# Run the server
-export JWT_SECRET=$(openssl rand -hex 32)
+# Run in foreground (useful for debugging)
 ./bin/taskflow
+
+# Or run as a background daemon
+./bin/taskflow start
 
 # Access the UI at http://localhost:8080
 ```
+
+### Service Commands
+
+TaskFlow supports service-style commands for daemon management:
+
+```bash
+./taskflow          # Start in foreground
+./taskflow start    # Start as background daemon
+./taskflow stop     # Stop the running daemon
+./taskflow status   # Check if TaskFlow is running
+./taskflow help     # Show help message
+```
+
+When started with `start`, TaskFlow:
+- Runs in the background
+- Creates a PID file (`taskflow.pid`) in the executable directory
+- Can be stopped gracefully with `./taskflow stop`
 
 ### Development Mode
 
@@ -54,7 +73,8 @@ Set environment variables:
 ```bash
 export PORT=8080                    # HTTP port (default: 8080)
 export DB_PATH=/path/to/taskflow.db # Database path (default: taskflow.db)
-export JWT_SECRET=your-secret-key   # Required: JWT signing secret
+export JWT_SECRET=your-secret-key   # JWT signing secret (auto-generated if not set)
+export API_BASE_PATH=/api           # API base path (default: /api)
 export LOG_LEVEL=info               # Log level: debug, info, warn, error
 export ALLOWED_ORIGINS=*            # CORS origins (default: *)
 export LOG_RETENTION_DAYS=30        # Days to keep run logs (default: 30)
@@ -65,6 +85,10 @@ export SMTP_PORT=587
 export SMTP_USERNAME=user@example.com
 export SMTP_PASSWORD=password
 ```
+
+**Notes:**
+- If `JWT_SECRET` is not set, a random secret is generated at startup. This means user sessions won't persist across restarts. For production, set a fixed secret.
+- `API_BASE_PATH` is a runtime configuration. The frontend fetches it from `/taskflow-app/config` at startup, so you only need to set it on the backend. This is useful when deploying behind a reverse proxy (e.g., nginx) at a subpath like `/taskflow/api`.
 
 ## Database
 
@@ -81,12 +105,16 @@ The application automatically creates and initializes SQLite on first run. The d
 
 ## API Endpoints
 
-### Authentication (No Auth Required)
+### System (No Auth Required)
 
+- `GET /health` - Health check
+- `GET /taskflow-app/config` - Get runtime configuration (API base path)
 - `GET /setup/status` - Check if setup is needed
 - `POST /setup/admin` - Create first admin user
+
+### Authentication (No Auth Required)
+
 - `POST /api/auth/login` - Login and get JWT token
-- `GET /health` - Health check
 
 ### Jobs (Auth Required)
 
@@ -187,8 +215,42 @@ make build
 # Copy binary and set up data directory
 mkdir -p /opt/taskflow/data
 cp bin/taskflow /opt/taskflow/
+cd /opt/taskflow
 
-# Run with systemd (see README for systemd setup)
+# Start as daemon
+./taskflow start
+
+# Check status
+./taskflow status
+
+# Stop when needed
+./taskflow stop
+```
+
+### Using systemd (Optional)
+
+For automatic startup on boot, create `/etc/systemd/system/taskflow.service`:
+
+```ini
+[Unit]
+Description=TaskFlow Task Scheduler
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/taskflow
+ExecStart=/opt/taskflow/taskflow
+Environment=DB_PATH=/opt/taskflow/data/taskflow.db
+Environment=JWT_SECRET=your-production-secret
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then enable and start:
+```bash
+sudo systemctl enable taskflow
 sudo systemctl start taskflow
 ```
 
