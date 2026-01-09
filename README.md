@@ -2,6 +2,8 @@
 
 A lightweight, self-hosted task scheduler with a Go backend, SQLite storage, and Vue.js web UI.
 
+![Taskflow](image.png)
+
 ## Features
 
 - **Go Backend**: Single binary, easy deployment
