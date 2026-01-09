@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub Actions workflow for automated releases (`.github/workflows/release.yml`)
+  - Triggers on semantic version tags (v*.*.*)
+  - Cross-compiles binaries for Linux, macOS, and Windows (AMD64 + ARM64)
+  - Runs tests before release, generates checksums
+  - Auto-generates release notes from commits
 - GitHub Pages landing page (`index.html`) for project showcase
   - Clean, minimal design matching the application's W3Techs-inspired style
   - Hero section with project description and download/GitHub links
