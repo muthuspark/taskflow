@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Schedule selection during job creation with preset options:
+  - Daily at 9 AM (default), Hourly, Daily at midnight
+  - Weekdays at 9 AM, Weekly on Monday, Monthly on 1st
+  - Custom schedule with minute/hour/weekday selectors
+  - Cron expression preview
+- Working directory field in job create and edit forms
+- Schedule can now be included in job create/update API requests
+
+### Changed
+- Default schedule for new jobs is "Daily at 9 AM" instead of every minute (prevents immediate execution)
+- Job creation now rolls back if schedule save fails (data consistency)
+- Job update returns error if schedule update fails
+
+### Improved (Code Quality)
+- Replaced direct error comparisons with `errors.Is()` for sql.ErrNoRows
+- Replaced type assertions with `errors.As()` for exec.ExitError extraction
+- Replaced manual time field comparison with `time.Truncate().Equal()`
+- Replaced manual extension loop with `filepath.Ext()` and map lookup
+- Replaced `strings.Split(" ")` with `strings.Fields()` for Bearer token parsing
+- Replaced manual slice loop with `slices.ContainsFunc()` for origin validation
+- Replaced chained `||` checks with map-based lookup for enum validation
+- Added explicit error handling for JSON marshal operations in SetJobSchedule
+
 ## [0.3.0] - 2026-01-07
 
 ### Changed
