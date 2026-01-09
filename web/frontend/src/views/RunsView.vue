@@ -79,115 +79,143 @@ function refresh() {
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="m-0 text-black font-black uppercase tracking-tight">Run History</h1>
-      <button @click="refresh" class="btn btn-secondary" :disabled="loading">
-        Refresh
-      </button>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white border border-gray-light p-6 mb-6">
-      <div class="flex items-center gap-3">
-        <label for="jobFilter" class="font-black text-black text-sm uppercase tracking-tight">Filter by Job:</label>
-        <select id="jobFilter" v-model="selectedJobId" :disabled="loading" class="px-3 py-2 border border-gray-light text-sm">
-          <option value="">All Jobs</option>
-          <option v-for="job in jobs" :key="job.id" :value="job.id">
-            {{ job.name }}
-          </option>
-        </select>
+  <div class="main-container">
+    <div class="content-area">
+      <div class="page-header">
+        <h1 style="margin: 0;">Run History</h1>
+        <button @click="refresh" class="btn" :disabled="loading">
+          Refresh
+        </button>
       </div>
-    </div>
 
-    <div v-if="loading && !runs.length" class="loading-container">
-      <div class="spinner-large"></div>
-      <p>Loading runs...</p>
-    </div>
+      <p>View the execution history of all jobs. Click on a run to see detailed logs and metrics.</p>
 
-    <div v-else-if="error" class="error-container">
-      <p>{{ error }}</p>
-      <button @click="loadRuns" class="btn btn-primary">Retry</button>
-    </div>
+      <!-- Filters -->
+      <div class="card">
+        <div class="card-header">Filters</div>
+        <div class="card-body">
+          <div class="form-group mb-0">
+            <label for="jobFilter">Filter by Job:</label>
+            <select id="jobFilter" v-model="selectedJobId" :disabled="loading" style="max-width: 300px;">
+              <option value="">All Jobs</option>
+              <option v-for="job in jobs" :key="job.id" :value="job.id">
+                {{ job.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-    <div v-else-if="!runs.length" class="empty-state">
-      <h2>No runs found</h2>
-      <p v-if="selectedJobId">No runs found for this job. Try running it!</p>
-      <p v-else>No job runs yet. Create a job and run it to see history here.</p>
-      <router-link to="/jobs" class="btn btn-primary">Go to Jobs</router-link>
-    </div>
+      <div v-if="loading && !runs.length" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading runs...</p>
+      </div>
 
-    <template v-else>
-      <div class="bg-white border border-gray-light overflow-auto">
-        <table class="w-full border-collapse text-sm">
-          <thead class="border-b border-gray-light">
+      <div v-else-if="error" class="error-message">
+        {{ error }}
+        <button @click="loadRuns" class="btn btn-small" style="margin-left: 10px;">Retry</button>
+      </div>
+
+      <div v-else-if="!runs.length" class="empty-state">
+        <h2>No runs found</h2>
+        <p v-if="selectedJobId">No runs found for this job. Try running it!</p>
+        <p v-else>No job runs yet. Create a job and run it to see history here.</p>
+        <router-link to="/jobs" class="btn btn-primary">Go to Jobs</router-link>
+      </div>
+
+      <template v-else>
+        <h2>All Runs</h2>
+        <p class="table-title">Job execution history</p>
+
+        <table class="full-width">
+          <thead>
             <tr>
-              <th class="px-4 py-3 text-left font-black text-xs uppercase tracking-tight border-r border-gray-light">Job</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Started</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Finished</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Duration</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Exit Code</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Trigger</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight">Actions</th>
+              <th>#</th>
+              <th>Job</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Finished</th>
+              <th>Duration</th>
+              <th>Exit</th>
+              <th>Trigger</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(run, index) in runs" :key="run.id" :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-lighter'" class="border-b border-gray-light hover:bg-gray-light">
-              <td class="px-4 py-3 border-r border-gray-light">
-                <a @click.prevent="goToJob(run.job_id)" href="#" class="text-black underline font-bold cursor-pointer">
+            <tr v-for="(run, index) in runs" :key="run.id">
+              <td>{{ index + 1 }}.</td>
+              <td>
+                <a href="#" @click.prevent="goToJob(run.job_id)">
                   {{ getJobName(run.job_id) }}
                 </a>
               </td>
-              <td class="px-4 py-3 border-r border-gray-light"><StatusBadge :status="run.status" /></td>
-              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.started_at) }}</td>
-              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.finished_at) }}</td>
-              <td class="px-4 py-3 text-black border-r border-gray-light">{{ formatDuration(run.duration_ms) }}</td>
-              <td class="px-4 py-3 text-black border-r border-gray-light">{{ run.exit_code ?? '-' }}</td>
-              <td class="px-4 py-3 border-r border-gray-light">
-                <span class="trigger-badge" :class="run.trigger_type || 'manual'">
-                  {{ run.trigger_type || 'manual' }}
-                </span>
+              <td><StatusBadge :status="run.status" /></td>
+              <td>{{ formatDate(run.started_at) }}</td>
+              <td>{{ formatDate(run.finished_at) }}</td>
+              <td class="number">{{ formatDuration(run.duration_ms) }}</td>
+              <td class="number">{{ run.exit_code ?? '-' }}</td>
+              <td>
+                <span class="badge">{{ run.trigger_type || 'manual' }}</span>
               </td>
-              <td class="px-4 py-3">
-                <button @click="goToRun(run.id)" class="btn btn-small">
-                  View Logs
-                </button>
+              <td>
+                <a href="#" @click.prevent="goToRun(run.id)">view logs</a>
               </td>
             </tr>
           </tbody>
         </table>
+        <div class="table-note">showing {{ runs.length }} run(s)</div>
+
+        <div v-if="runs.length >= limit" class="text-center mt-15">
+          <button @click="loadMore" class="btn" :disabled="loading">
+            Load More
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Quick Actions
+        </div>
+        <div class="sidebar-box-content">
+          <p class="mb-10">
+            <button @click="refresh" class="btn" style="width: 100%;" :disabled="loading">
+              Refresh Data
+            </button>
+          </p>
+          <p class="mb-0">
+            <router-link to="/jobs" class="btn" style="width: 100%; text-align: center;">
+              View All Jobs
+            </router-link>
+          </p>
+        </div>
       </div>
 
-      <div v-if="runs.length >= limit" class="text-center py-6">
-        <button @click="loadMore" class="btn btn-secondary" :disabled="loading">
-          Load More
-        </button>
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Run Status Legend
+        </div>
+        <div class="sidebar-box-content">
+          <p class="text-small">
+            <StatusBadge status="success" /> Job completed successfully
+          </p>
+          <p class="text-small">
+            <StatusBadge status="failed" /> Job failed with error
+          </p>
+          <p class="text-small">
+            <StatusBadge status="running" /> Job is currently executing
+          </p>
+          <p class="text-small mb-0">
+            <StatusBadge status="pending" /> Job is queued for execution
+          </p>
+        </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Trigger badge styling - component-specific states */
-.trigger-badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--white);
-  color: var(--black);
-  font-weight: 700;
-}
-
-.trigger-badge.manual,
-.trigger-badge.scheduled,
-.trigger-badge.api {
-  background: var(--white);
-  color: var(--black);
-  border: 1px solid var(--gray-light);
-}
+/* Using global W3Techs-style CSS */
 </style>

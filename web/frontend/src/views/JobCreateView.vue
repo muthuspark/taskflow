@@ -33,28 +33,28 @@ const errors = ref({})
 const schedulePresets = [
   { label: 'Daily at 9 AM', minutes: [0], hours: [9], days: [], months: [], weekdays: [] },
   { label: 'Hourly', minutes: [0], hours: [], days: [], months: [], weekdays: [] },
-  { label: 'Daily at midnight', minutes: [0], hours: [0], days: [], months: [], weekdays: [] },
+  { label: 'Daily at Midnight', minutes: [0], hours: [0], days: [], months: [], weekdays: [] },
   { label: 'Weekdays at 9 AM', minutes: [0], hours: [9], days: [], months: [], weekdays: [1, 2, 3, 4, 5] },
   { label: 'Weekly on Monday', minutes: [0], hours: [0], days: [], months: [], weekdays: [1] },
   { label: 'Monthly on 1st', minutes: [0], hours: [0], days: [1], months: [], weekdays: [] },
-  { label: 'Custom...', custom: true }
 ]
 
 const selectedPreset = ref('Daily at 9 AM')
 
 function applyPreset(preset) {
-  if (preset.custom) {
-    showCustomSchedule.value = true
-    selectedPreset.value = 'Custom...'
-    return
-  }
-  showCustomSchedule.value = false
   selectedPreset.value = preset.label
   scheduleMinutes.value = [...preset.minutes]
   scheduleHours.value = [...preset.hours]
   scheduleDays.value = [...preset.days]
   scheduleMonths.value = [...preset.months]
   scheduleWeekdays.value = [...preset.weekdays]
+}
+
+function toggleCustomSchedule() {
+  showCustomSchedule.value = !showCustomSchedule.value
+  if (showCustomSchedule.value) {
+    selectedPreset.value = 'Custom'
+  }
 }
 
 // Cron preview
@@ -88,6 +88,7 @@ function toggleMinute(value) {
   } else {
     scheduleMinutes.value.splice(index, 1)
   }
+  selectedPreset.value = 'Custom'
 }
 
 function toggleHour(value) {
@@ -98,6 +99,7 @@ function toggleHour(value) {
   } else {
     scheduleHours.value.splice(index, 1)
   }
+  selectedPreset.value = 'Custom'
 }
 
 function toggleWeekday(value) {
@@ -108,6 +110,7 @@ function toggleWeekday(value) {
   } else {
     scheduleWeekdays.value.splice(index, 1)
   }
+  selectedPreset.value = 'Custom'
 }
 
 // Validation
@@ -194,275 +197,351 @@ const timezones = [
 </script>
 
 <template>
-  <div class="max-w-[800px]">
-    <h1 class="m-0 mb-6 text-black font-black uppercase tracking-tight">Create New Job</h1>
+  <div class="main-container">
+    <div class="content-area">
+      <h1>Create New Job</h1>
+      <p>Configure a new scheduled task with script, execution settings, and schedule.</p>
 
-    <form @submit.prevent="handleSubmit" class="flex flex-col gap-6">
-      <div class="bg-white border border-gray-light p-6">
-        <h2 class="m-0 mb-4 pb-3 border-b border-gray-light text-black font-black uppercase tracking-tight text-lg">Basic Information</h2>
-
-        <div class="form-group">
-          <label for="name" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Job Name *</label>
-          <input
-            id="name"
-            v-model="name"
-            type="text"
-            placeholder="e.g., Daily Backup"
-            :class="{ 'has-error': errors.name }"
-            :disabled="loading"
-            class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-          />
-          <span v-if="errors.name" class="text-xs font-black mt-1 block">{{ errors.name }}</span>
-        </div>
-
-        <div class="form-group">
-          <label for="description" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Description</label>
-          <textarea
-            id="description"
-            v-model="description"
-            placeholder="Describe what this job does..."
-            rows="2"
-            :disabled="loading"
-            class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-          ></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="timezone" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Timezone</label>
-          <select id="timezone" v-model="timezone" :disabled="loading" class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed">
-            <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
-          </select>
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <label class="flex items-center gap-2 cursor-pointer font-bold">
-            <input type="checkbox" v-model="enabled" :disabled="loading" class="w-auto" />
-            <span>Enabled</span>
-          </label>
-          <span class="text-xs text-gray-dark">Disabled jobs won't be scheduled to run</span>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-light p-6">
-        <h2 class="m-0 mb-4 pb-3 border-b border-gray-light text-black font-black uppercase tracking-tight text-lg">Script</h2>
-
-        <div class="form-group">
-          <label for="script" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Bash Script *</label>
-          <textarea
-            id="script"
-            v-model="script"
-            class="script-editor w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-            rows="12"
-            spellcheck="false"
-            :class="{ 'has-error': errors.script }"
-            :disabled="loading"
-          ></textarea>
-          <span v-if="errors.script" class="text-xs font-black mt-1 block">{{ errors.script }}</span>
-          <span class="text-xs text-gray-dark mt-1 block">The script will be executed using bash</span>
-        </div>
-
-        <div class="form-group">
-          <label for="workingDir" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Working Directory</label>
-          <input
-            id="workingDir"
-            v-model="workingDir"
-            type="text"
-            placeholder="/tmp"
-            :disabled="loading"
-            class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-          />
-          <span class="text-xs text-gray-dark mt-1 block">Directory where the script will be executed (default: /tmp)</span>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-light p-6">
-        <h2 class="m-0 mb-4 pb-3 border-b border-gray-light text-black font-black uppercase tracking-tight text-lg">Execution Settings</h2>
-
-        <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4">
-          <div class="form-group">
-            <label for="timeout" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Timeout (seconds)</label>
-            <input
-              id="timeout"
-              v-model.number="timeout"
-              type="number"
-              min="1"
-              max="86400"
-              :class="{ 'has-error': errors.timeout }"
-              :disabled="loading"
-              class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-            />
-            <span v-if="errors.timeout" class="text-xs font-black mt-1 block">{{ errors.timeout }}</span>
-            <span class="text-xs text-gray-dark mt-1 block">Max: 86400 (24 hours)</span>
-          </div>
-
-          <div class="form-group">
-            <label for="retryCount" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Retry Count</label>
-            <input
-              id="retryCount"
-              v-model.number="retryCount"
-              type="number"
-              min="0"
-              max="10"
-              :class="{ 'has-error': errors.retryCount }"
-              :disabled="loading"
-              class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-            />
-            <span v-if="errors.retryCount" class="text-xs font-black mt-1 block">{{ errors.retryCount }}</span>
-            <span class="text-xs text-gray-dark mt-1 block">Number of retries on failure</span>
-          </div>
-
-          <div class="form-group">
-            <label for="retryDelay" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Retry Delay (seconds)</label>
-            <input
-              id="retryDelay"
-              v-model.number="retryDelay"
-              type="number"
-              min="0"
-              max="3600"
-              :class="{ 'has-error': errors.retryDelay }"
-              :disabled="loading"
-              class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
-            />
-            <span v-if="errors.retryDelay" class="text-xs font-black mt-1 block">{{ errors.retryDelay }}</span>
-            <span class="text-xs text-gray-dark mt-1 block">Delay between retries</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white border border-gray-light p-6">
-        <h2 class="m-0 mb-4 pb-3 border-b border-gray-light text-black font-black uppercase tracking-tight text-lg">Schedule</h2>
-
-        <div class="form-group mb-4">
-          <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Quick Presets</label>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in schedulePresets"
-              :key="preset.label"
-              type="button"
-              @click="applyPreset(preset)"
-              :class="['preset-btn', { active: selectedPreset === preset.label }]"
-              :disabled="loading"
-            >
-              {{ preset.label }}
-            </button>
-          </div>
-        </div>
-
-        <div v-if="showCustomSchedule" class="custom-schedule">
-          <div class="form-group mb-4">
-            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Minutes</label>
-            <div class="value-grid minute-grid">
-              <button
-                v-for="m in minuteOptions"
-                :key="m"
-                type="button"
-                @click="toggleMinute(m)"
-                :class="['value-btn', { active: scheduleMinutes.includes(m) }]"
+      <form @submit.prevent="handleSubmit">
+        <!-- Basic Information -->
+        <div class="card">
+          <div class="card-header">Basic Information</div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="name">Job Name <span class="required">*</span></label>
+              <input
+                id="name"
+                v-model="name"
+                type="text"
+                placeholder="e.g., Daily Backup"
                 :disabled="loading"
-              >
-                {{ m }}
-              </button>
+              />
+              <div v-if="errors.name" class="field-error">{{ errors.name }}</div>
             </div>
-            <span class="text-xs text-gray-dark mt-1 block">Empty = every minute</span>
-          </div>
 
-          <div class="form-group mb-4">
-            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Hours</label>
-            <div class="value-grid hour-grid">
-              <button
-                v-for="h in hourOptions"
-                :key="h"
-                type="button"
-                @click="toggleHour(h)"
-                :class="['value-btn', { active: scheduleHours.includes(h) }]"
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea
+                id="description"
+                v-model="description"
+                placeholder="Describe what this job does..."
+                rows="2"
                 :disabled="loading"
-              >
-                {{ h }}
-              </button>
+              ></textarea>
             </div>
-            <span class="text-xs text-gray-dark mt-1 block">Empty = every hour</span>
-          </div>
 
-          <div class="form-group mb-4">
-            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Days of Week</label>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="d in weekdayOptions"
-                :key="d.value"
-                type="button"
-                @click="toggleWeekday(d.value)"
-                :class="['value-btn weekday-btn', { active: scheduleWeekdays.includes(d.value) }]"
-                :disabled="loading"
-              >
-                {{ d.label }}
-              </button>
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="timezone">Timezone</label>
+                <select id="timezone" v-model="timezone" :disabled="loading">
+                  <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>&nbsp;</label>
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="enabled" :disabled="loading" />
+                  Enabled
+                </label>
+                <div class="field-hint">Disabled jobs won't be scheduled to run</div>
+              </div>
             </div>
-            <span class="text-xs text-gray-dark mt-1 block">Empty = any day</span>
           </div>
         </div>
 
-        <div class="cron-preview">
-          <label class="font-black text-black text-sm uppercase tracking-tight">Cron Expression:</label>
-          <code class="ml-2 font-mono text-sm bg-gray-lighter px-2 py-1 border border-gray-light">{{ cronPreview }}</code>
+        <!-- Script -->
+        <div class="card">
+          <div class="card-header">Script</div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="script">Bash Script <span class="required">*</span></label>
+              <textarea
+                id="script"
+                v-model="script"
+                class="script-editor"
+                rows="10"
+                spellcheck="false"
+                :disabled="loading"
+              ></textarea>
+              <div v-if="errors.script" class="field-error">{{ errors.script }}</div>
+              <div class="field-hint">The script will be executed using bash</div>
+            </div>
+
+            <div class="form-group">
+              <label for="workingDir">Working Directory</label>
+              <input
+                id="workingDir"
+                v-model="workingDir"
+                type="text"
+                placeholder="/tmp"
+                :disabled="loading"
+              />
+              <div class="field-hint">Directory where the script will be executed (default: /tmp)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Execution Settings -->
+        <div class="card">
+          <div class="card-header">Execution Settings</div>
+          <div class="card-body">
+            <div class="form-row-3col">
+              <div class="form-group">
+                <label for="timeout">Timeout (seconds)</label>
+                <input
+                  id="timeout"
+                  v-model.number="timeout"
+                  type="number"
+                  min="1"
+                  max="86400"
+                  :disabled="loading"
+                />
+                <div v-if="errors.timeout" class="field-error">{{ errors.timeout }}</div>
+                <div class="field-hint">Max: 86400 (24 hours)</div>
+              </div>
+
+              <div class="form-group">
+                <label for="retryCount">Retry Count</label>
+                <input
+                  id="retryCount"
+                  v-model.number="retryCount"
+                  type="number"
+                  min="0"
+                  max="10"
+                  :disabled="loading"
+                />
+                <div v-if="errors.retryCount" class="field-error">{{ errors.retryCount }}</div>
+                <div class="field-hint">0-10 retries on failure</div>
+              </div>
+
+              <div class="form-group">
+                <label for="retryDelay">Retry Delay (sec)</label>
+                <input
+                  id="retryDelay"
+                  v-model.number="retryDelay"
+                  type="number"
+                  min="0"
+                  max="3600"
+                  :disabled="loading"
+                />
+                <div v-if="errors.retryDelay" class="field-error">{{ errors.retryDelay }}</div>
+                <div class="field-hint">Delay between retries</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="card">
+          <div class="card-header">Schedule</div>
+          <div class="card-body">
+            <div class="form-group">
+              <label>Quick Presets</label>
+              <div class="preset-buttons">
+                <button
+                  v-for="preset in schedulePresets"
+                  :key="preset.label"
+                  type="button"
+                  @click="applyPreset(preset)"
+                  :class="['preset-btn', { active: selectedPreset === preset.label }]"
+                  :disabled="loading"
+                >
+                  {{ preset.label }}
+                </button>
+                <button
+                  type="button"
+                  @click="toggleCustomSchedule"
+                  :class="['preset-btn', { active: showCustomSchedule }]"
+                  :disabled="loading"
+                >
+                  Custom...
+                </button>
+              </div>
+            </div>
+
+            <div v-if="showCustomSchedule" class="custom-schedule">
+              <hr class="section-divider">
+
+              <div class="form-group">
+                <label>Minutes (0-59)</label>
+                <div class="value-grid minute-grid">
+                  <button
+                    v-for="m in minuteOptions"
+                    :key="m"
+                    type="button"
+                    @click="toggleMinute(m)"
+                    :class="['value-btn', { active: scheduleMinutes.includes(m) }]"
+                    :disabled="loading"
+                  >
+                    {{ m }}
+                  </button>
+                </div>
+                <div class="field-hint">Click to select. Empty = every minute.</div>
+              </div>
+
+              <div class="form-group">
+                <label>Hours (0-23)</label>
+                <div class="value-grid hour-grid">
+                  <button
+                    v-for="h in hourOptions"
+                    :key="h"
+                    type="button"
+                    @click="toggleHour(h)"
+                    :class="['value-btn', { active: scheduleHours.includes(h) }]"
+                    :disabled="loading"
+                  >
+                    {{ h }}
+                  </button>
+                </div>
+                <div class="field-hint">Click to select. Empty = every hour.</div>
+              </div>
+
+              <div class="form-group">
+                <label>Days of Week</label>
+                <div class="weekday-buttons">
+                  <button
+                    v-for="d in weekdayOptions"
+                    :key="d.value"
+                    type="button"
+                    @click="toggleWeekday(d.value)"
+                    :class="['weekday-btn', { active: scheduleWeekdays.includes(d.value) }]"
+                    :disabled="loading"
+                  >
+                    {{ d.label }}
+                  </button>
+                </div>
+                <div class="field-hint">Click to select. Empty = any day.</div>
+              </div>
+            </div>
+
+            <div class="cron-preview">
+              <strong>Cron Expression:</strong>
+              <code>{{ cronPreview }}</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="error" class="error-message">
+          {{ error }}
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button type="button" @click="cancel" class="btn" :disabled="loading">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" :disabled="loading">
+            <span v-if="loading">Creating...</span>
+            <span v-else>Create Job</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">Help</div>
+        <div class="sidebar-box-content">
+          <p class="text-small"><strong>Job Name:</strong> A unique identifier for your task.</p>
+          <p class="text-small"><strong>Script:</strong> Bash script to execute. Must start with shebang.</p>
+          <p class="text-small"><strong>Timeout:</strong> Maximum execution time before termination.</p>
+          <p class="text-small mb-0"><strong>Schedule:</strong> When the job should run (cron-style).</p>
         </div>
       </div>
 
-      <div v-if="error" class="bg-gray-lighter border border-gray-light p-4 text-center text-black">
-        {{ error }}
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">Cron Format</div>
+        <div class="sidebar-box-content">
+          <pre class="cron-format">minute hour day month weekday
+  *     *    *    *      *
+  |     |    |    |      |
+  |     |    |    |      +-- Day of week (0-6)
+  |     |    |    +--------- Month (1-12)
+  |     |    +-------------- Day of month (1-31)
+  |     +------------------- Hour (0-23)
+  +------------------------- Minute (0-59)</pre>
+        </div>
       </div>
-
-      <div class="flex justify-end gap-4">
-        <button type="button" @click="cancel" class="btn btn-secondary" :disabled="loading">
-          Cancel
-        </button>
-        <button type="submit" class="btn btn-primary" :disabled="loading">
-          <span v-if="loading">
-            <span class="spinner"></span>
-            Creating...
-          </span>
-          <span v-else>Create Job</span>
-        </button>
-      </div>
-    </form>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Form validation and input styling */
-.form-group input.has-error,
-.form-group textarea.has-error {
-  border-color: var(--gray-light);
+.required {
+  color: #cc0000;
 }
 
-/* Specialized script editor styling - monospace font */
-.script-editor {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  resize: vertical;
-  padding: 0.75rem !important;
+.field-error {
+  color: #cc0000;
+  font-size: 11px;
+  margin-top: 4px;
 }
 
-/* Schedule preset buttons */
-.preset-btn {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
-  border: 1px solid var(--gray-light);
-  background: var(--white);
+.field-hint {
+  color: #666666;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.form-row-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  color: var(--black);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: bold;
+  padding: 6px 0;
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.script-editor {
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  border: 1px solid #999999;
+  background: #ffffff;
+  cursor: pointer;
+  color: #333333;
+  font-weight: bold;
 }
 
 .preset-btn:hover {
-  background: var(--gray-lighter);
+  background: #bcd4ec;
 }
 
 .preset-btn.active {
-  background: var(--black);
-  color: var(--white);
+  background: #6699cc;
+  color: #ffffff;
+  border-color: #6699cc;
 }
 
 .preset-btn:disabled {
@@ -470,14 +549,17 @@ const timezones = [
   cursor: not-allowed;
 }
 
-/* Schedule value grids */
+.custom-schedule {
+  margin-top: 15px;
+}
+
 .value-grid {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .minute-grid {
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: repeat(15, 1fr);
 }
 
 .hour-grid {
@@ -485,22 +567,24 @@ const timezones = [
 }
 
 .value-btn {
-  padding: 0.375rem 0.25rem;
-  font-size: 0.75rem;
-  border: 1px solid var(--gray-light);
-  background: var(--white);
+  padding: 4px 2px;
+  font-size: 10px;
+  border: 1px solid #cccccc;
+  background: #ffffff;
   cursor: pointer;
-  color: var(--black);
-  font-weight: 700;
+  color: #333333;
+  font-weight: bold;
+  text-align: center;
 }
 
 .value-btn:hover {
-  background: var(--gray-lighter);
+  background: #bcd4ec;
 }
 
 .value-btn.active {
-  background: var(--black);
-  color: var(--white);
+  background: #6699cc;
+  color: #ffffff;
+  border-color: #6699cc;
 }
 
 .value-btn:disabled {
@@ -508,41 +592,83 @@ const timezones = [
   cursor: not-allowed;
 }
 
+.weekday-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 .weekday-btn {
-  padding: 0.5rem 0.75rem;
+  padding: 6px 12px;
+  font-size: 11px;
+  border: 1px solid #cccccc;
+  background: #ffffff;
+  cursor: pointer;
+  color: #333333;
+  font-weight: bold;
+}
+
+.weekday-btn:hover {
+  background: #bcd4ec;
+}
+
+.weekday-btn.active {
+  background: #6699cc;
+  color: #ffffff;
+  border-color: #6699cc;
+}
+
+.weekday-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .cron-preview {
+  margin-top: 15px;
+  padding: 10px;
+  background: #f4f4f4;
+  border: 1px solid #cccccc;
+}
+
+.cron-preview code {
+  font-family: "Courier New", monospace;
+  background: #ffffff;
+  padding: 2px 8px;
+  border: 1px solid #cccccc;
+  margin-left: 10px;
+}
+
+.cron-format {
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.form-actions {
+  margin-top: 20px;
   display: flex;
-  align-items: center;
-  padding: 1rem;
-  background: var(--gray-lighter);
-  border: 1px solid var(--gray-light);
-  margin-top: 1rem;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
-.custom-schedule {
-  border-top: 1px solid var(--gray-light);
-  padding-top: 1rem;
-  margin-top: 1rem;
-}
+@media (max-width: 768px) {
+  .form-row-2col,
+  .form-row-3col {
+    grid-template-columns: 1fr;
+  }
 
-/* Inline spinner */
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--gray-light);
-  border-top-color: var(--white);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-right: 0.5rem;
-  vertical-align: middle;
-}
+  .minute-grid {
+    grid-template-columns: repeat(10, 1fr);
+  }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  .hour-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .weekday-buttons {
+    flex-wrap: wrap;
   }
 }
 </style>

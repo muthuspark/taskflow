@@ -54,73 +54,90 @@ function goToJob(jobId) {
 </script>
 
 <template>
-  <div>
-    <h1 class="mb-6 text-black font-black uppercase tracking-tight">Dashboard</h1>
+  <div class="main-container">
+    <!-- Main Content Area -->
+    <div class="content-area">
+      <h1>TaskFlow - Task Scheduler Dashboard</h1>
 
-    <div v-if="loading" class="loading-container">
-      <div class="spinner-large"></div>
-      <p>Loading dashboard...</p>
-    </div>
+      <p>TaskFlow provides a lightweight, self-hosted solution for scheduling and running tasks on your servers.</p>
 
-    <div v-else-if="error" class="error-container">
-      <p>{{ error }}</p>
-      <button @click="$router.go()" class="btn btn-primary">Retry</button>
-    </div>
-
-    <template v-else>
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-8">
-        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
-          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.total_jobs || 0 }}</div>
-          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Total Jobs</div>
-        </div>
-        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
-          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.active_jobs || 0 }}</div>
-          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Active Jobs</div>
-        </div>
-        <div class="stat-card bg-white border border-gray-light p-6 text-center hover:bg-gray-lighter transition-none">
-          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ successRatePercent }}%</div>
-          <div class="text-sm text-gray-medium uppercase tracking-tight font-black">Success Rate</div>
-        </div>
-        <div class="stat-card bg-black text-white border border-gray-light p-6 text-center hover:bg-black transition-none">
-          <div class="text-5xl font-black leading-none mb-2 uppercase">{{ stats?.running_now || 0 }}</div>
-          <div class="text-sm text-white uppercase tracking-tight font-black">Running Now</div>
-        </div>
+      <div class="vision-box">
+        <strong>Our goal:</strong> Provide the simplest, most reliable task scheduling solution for small to medium deployments.
       </div>
 
-      <!-- Quick Actions -->
-      <div class="flex gap-4 mb-8 flex-wrap">
-        <router-link to="/jobs/new" class="btn btn-primary">
-          Create New Job
-        </router-link>
-        <router-link to="/jobs" class="btn btn-secondary">
-          View All Jobs
-        </router-link>
-        <router-link to="/runs" class="btn btn-secondary">
-          View All Runs
-        </router-link>
+      <div v-if="loading" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading dashboard...</p>
       </div>
 
-      <!-- Recent Runs Table -->
-      <div class="bg-white border border-gray-light p-6">
-        <h2 class="m-0 mb-4 text-2xl text-black font-black uppercase tracking-tight pb-4 border-b border-gray-light">Recent Runs</h2>
-        <div v-if="!stats?.recent_runs?.length" class="empty-state">
-          <p>No recent runs found</p>
-        </div>
-        <table v-else class="w-full border-collapse">
+      <div v-else-if="error" class="error-message">
+        {{ error }}
+        <button @click="$router.go()" class="btn btn-small" style="margin-left: 10px;">Retry</button>
+      </div>
+
+      <template v-else>
+        <hr class="section-divider">
+
+        <h2>System Statistics</h2>
+        <p class="table-title">Current system overview</p>
+
+        <table>
           <thead>
             <tr>
-              <th>Job</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Duration</th>
-              <th>Actions</th>
+              <th>Metric</th>
+              <th>Value</th>
+              <th>Description</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="run in stats.recent_runs" :key="run.id">
+            <tr>
+              <td>Total Jobs</td>
+              <td class="number">{{ stats?.total_jobs || 0 }}</td>
+              <td>Total number of configured jobs</td>
+            </tr>
+            <tr>
+              <td>Active Jobs</td>
+              <td class="number">{{ stats?.active_jobs || 0 }}</td>
+              <td>Jobs currently enabled for scheduling</td>
+            </tr>
+            <tr>
+              <td>Success Rate</td>
+              <td class="number positive">{{ successRatePercent }}%</td>
+              <td>Percentage of successful runs (last 7 days)</td>
+            </tr>
+            <tr>
+              <td>Running Now</td>
+              <td class="number" :class="{ positive: stats?.running_now > 0 }">{{ stats?.running_now || 0 }}</td>
+              <td>Jobs currently executing</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <hr class="section-divider">
+
+        <h2>Recent Runs</h2>
+        <p class="table-title">Most recent job executions</p>
+
+        <div v-if="!stats?.recent_runs?.length" class="empty-state">
+          <p class="mb-0">No recent runs found.</p>
+        </div>
+
+        <table v-else class="full-width">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Job Name</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(run, index) in stats.recent_runs" :key="run.id">
+              <td>{{ index + 1 }}.</td>
               <td>
-                <a @click.prevent="goToJob(run.job_id)" href="#" class="link">
+                <a href="#" @click.prevent="goToJob(run.job_id)">
                   {{ run.job_name || run.job_id }}
                 </a>
               </td>
@@ -128,20 +145,93 @@ function goToJob(jobId) {
                 <StatusBadge :status="run.status" />
               </td>
               <td>{{ formatDate(run.started_at) }}</td>
-              <td>{{ formatDuration(run.duration_ms) }}</td>
+              <td class="number">{{ formatDuration(run.duration_ms) }}</td>
               <td>
-                <button @click="goToRun(run.id)" class="btn btn-small">
-                  View Logs
-                </button>
+                <a href="#" @click.prevent="goToRun(run.id)">view logs</a>
               </td>
             </tr>
           </tbody>
         </table>
+        <div class="table-note">showing most recent executions</div>
+
+        <p class="mt-15">
+          Find more details in the <router-link to="/runs">run history</router-link>.
+        </p>
+      </template>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Quick Actions Box -->
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Quick Actions
+        </div>
+        <div class="sidebar-box-content">
+          <p class="mb-10">
+            <router-link to="/jobs/new" class="btn btn-primary" style="width: 100%; text-align: center;">
+              Create New Job
+            </router-link>
+          </p>
+          <p class="mb-10">
+            <router-link to="/jobs" class="btn" style="width: 100%; text-align: center;">
+              View All Jobs
+            </router-link>
+          </p>
+          <p class="mb-0">
+            <router-link to="/runs" class="btn" style="width: 100%; text-align: center;">
+              View Run History
+            </router-link>
+          </p>
+        </div>
       </div>
-    </template>
+
+      <!-- System Info Box -->
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          System Info
+        </div>
+        <div class="sidebar-box-content">
+          <div class="news-item">
+            <div class="news-title">TaskFlow v1.0</div>
+            <div class="news-date">Self-hosted scheduler</div>
+            <div class="news-text">
+              Lightweight task scheduling with cron-like syntax, script execution, and real-time log streaming.
+            </div>
+          </div>
+          <div class="news-item">
+            <div class="news-title">Features</div>
+            <div class="news-text">
+              <ul style="margin: 0; padding-left: 20px;">
+                <li>Cron-style scheduling</li>
+                <li>Script execution</li>
+                <li>Real-time WebSocket logs</li>
+                <li>CPU/memory metrics</li>
+                <li>JWT authentication</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documentation Box -->
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Documentation
+        </div>
+        <div class="sidebar-box-content">
+          <p class="text-small">
+            TaskFlow uses SQLite for storage and supports both manual and scheduled job execution.
+          </p>
+          <p class="text-small mb-0">
+            Jobs run sequentially to avoid resource contention on single-server deployments.
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* All styles handled by Tailwind utilities and global CSS classes */
+/* Using global W3Techs-style CSS */
 </style>

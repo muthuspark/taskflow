@@ -49,77 +49,82 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="flex items-center justify-center min-h-screen bg-white p-4">
-    <div class="bg-white border-2 border-gray-light p-8 w-full max-w-[400px]">
-      <div class="text-center mb-8 pb-6 border-b border-gray-light">
-        <h1 class="text-4xl text-black m-0 mb-2 font-black uppercase tracking-tight">TaskFlow</h1>
-        <p v-if="checkingSetup" class="text-gray-medium m-0 font-bold">Loading...</p>
-        <p v-else-if="setupRequired" class="text-gray-medium m-0 font-bold">Create Admin Account</p>
-        <p v-else class="text-gray-medium m-0 font-bold">Sign in to continue</p>
-      </div>
-
-      <form v-if="!checkingSetup" @submit.prevent="handleSubmit" class="flex flex-col gap-4">
-        <div class="form-group">
-          <label for="username" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Username</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Enter username"
-            required
-            :disabled="loading"
-            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
-          />
+  <div class="login-page">
+    <div class="top-border"></div>
+    <div class="login-container">
+      <div class="login-box">
+        <div class="login-header">
+          <h1>TaskFlow</h1>
+          <p v-if="checkingSetup" class="text-small mb-0">Loading...</p>
+          <p v-else-if="setupRequired" class="text-small mb-0">Create Admin Account</p>
+          <p v-else class="text-small mb-0">Sign in to continue</p>
         </div>
 
-        <div v-if="setupRequired" class="form-group">
-          <label for="email" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Email</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            placeholder="Enter email"
-            required
-            :disabled="loading"
-            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
-          />
+        <div class="login-body">
+          <form v-if="!checkingSetup" @submit.prevent="handleSubmit">
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input
+                id="username"
+                v-model="username"
+                type="text"
+                placeholder="Enter username"
+                required
+                :disabled="loading"
+              />
+            </div>
+
+            <div v-if="setupRequired" class="form-group">
+              <label for="email">Email</label>
+              <input
+                id="email"
+                v-model="email"
+                type="email"
+                placeholder="Enter email"
+                required
+                :disabled="loading"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input
+                id="password"
+                v-model="password"
+                type="password"
+                placeholder="Enter password"
+                required
+                :disabled="loading"
+              />
+            </div>
+
+            <div v-if="error" class="error-message mb-10">
+              {{ error }}
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;" :disabled="loading">
+              <span v-if="loading">
+                <span class="spinner" style="width: 12px; height: 12px; border-width: 2px; margin-right: 6px; vertical-align: middle;"></span>
+                {{ setupRequired ? 'Creating...' : 'Signing in...' }}
+              </span>
+              <span v-else>
+                {{ setupRequired ? 'Create Admin Account' : 'Sign In' }}
+              </span>
+            </button>
+          </form>
+
+          <div v-if="setupRequired && !checkingSetup" class="mt-15" style="background: #f4f4f4; padding: 10px; border: 1px solid #ccc;">
+            <p class="text-small mb-0">This is the first time setup. Create your admin account to get started.</p>
+          </div>
         </div>
-
-        <div class="form-group">
-          <label for="password" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Enter password"
-            required
-            :disabled="loading"
-            class="w-full px-3 py-3 text-base text-black bg-white border border-gray-light transition-none font-inherit font-medium"
-          />
-        </div>
-
-        <div v-if="error" class="bg-white text-black px-4 py-3 border border-gray-light text-sm text-center font-black">
-          {{ error }}
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-          <span v-if="loading">
-            <span class="spinner-sm inline-block mr-2 align-middle"></span>
-            {{ setupRequired ? 'Creating...' : 'Signing in...' }}
-          </span>
-          <span v-else>
-            {{ setupRequired ? 'Create Admin Account' : 'Sign In' }}
-          </span>
-        </button>
-      </form>
-
-      <div v-if="setupRequired && !checkingSetup" class="mt-6 p-4 bg-gray-lighter border border-gray-light text-center">
-        <p class="m-0 text-black text-sm font-bold">This is the first time setup. Create your admin account to get started.</p>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* All styles now use Tailwind utilities in the template */
+.login-page {
+  min-height: 100vh;
+  background-color: #ffffff;
+}
 </style>

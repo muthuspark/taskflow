@@ -112,124 +112,181 @@ function formatDuration(ms) {
 </script>
 
 <template>
-  <div>
-    <div v-if="loading && !job" class="loading-container">
-      <div class="spinner-large"></div>
-      <p>Loading job...</p>
-    </div>
+  <div class="main-container">
+    <div class="content-area">
+      <div v-if="loading && !job" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading job...</p>
+      </div>
 
-    <div v-else-if="error && !job" class="error-container">
-      <p>{{ error }}</p>
-      <button @click="router.push('/jobs')" class="btn btn-secondary">Back to Jobs</button>
-    </div>
+      <div v-else-if="error && !job" class="error-message">
+        {{ error }}
+        <button @click="router.push('/jobs')" class="btn btn-small" style="margin-left: 10px;">Back to Jobs</button>
+      </div>
 
-    <template v-else-if="job">
-      <!-- Header -->
-      <div class="flex justify-between items-start flex-wrap gap-4 mb-6">
-        <div class="flex flex-col gap-2">
-          <button @click="router.push('/jobs')" class="bg-none border-none text-black p-0 cursor-pointer text-sm underline font-bold text-left">
-            &larr; Back to Jobs
-          </button>
-          <div class="flex items-center gap-3">
-            <h1 class="m-0 text-black font-black uppercase tracking-tight">{{ job.name }}</h1>
+      <template v-else-if="job">
+        <!-- Back Link -->
+        <p class="back-link">
+          <a href="#" @click.prevent="router.push('/jobs')">&larr; Back to Jobs</a>
+        </p>
+
+        <!-- Header -->
+        <div class="page-header">
+          <div>
+            <h1 style="margin: 0;">{{ job.name }}</h1>
+            <p v-if="job.description" class="job-description">{{ job.description }}</p>
+          </div>
+          <div class="header-actions">
+            <button @click="handleRun" class="btn btn-primary" :disabled="runningJob">
+              <span v-if="runningJob">Running...</span>
+              <span v-else>Run Now</span>
+            </button>
+            <button @click="showEditForm = true" class="btn">Edit</button>
+            <button @click="handleDelete" class="btn btn-danger">Delete</button>
+          </div>
+        </div>
+
+        <!-- Job Details Table -->
+        <div class="card">
+          <div class="card-header">
+            Job Details
             <StatusBadge :status="job.enabled ? 'enabled' : 'disabled'" />
           </div>
+          <div class="card-body">
+            <table class="details-table">
+              <tbody>
+                <tr>
+                  <th>Status</th>
+                  <td><StatusBadge :status="job.enabled ? 'enabled' : 'disabled'" /></td>
+                </tr>
+                <tr>
+                  <th>Timezone</th>
+                  <td>{{ job.timezone || 'UTC' }}</td>
+                </tr>
+                <tr>
+                  <th>Timeout</th>
+                  <td>{{ job.timeout_seconds }} seconds</td>
+                </tr>
+                <tr>
+                  <th>Retries</th>
+                  <td>{{ job.retry_count }} attempts ({{ job.retry_delay_seconds }}s delay)</td>
+                </tr>
+                <tr>
+                  <th>Working Dir</th>
+                  <td><code>{{ job.working_dir || '/tmp' }}</code></td>
+                </tr>
+                <tr>
+                  <th>Created</th>
+                  <td>{{ formatDate(job.created_at) }}</td>
+                </tr>
+                <tr>
+                  <th>Updated</th>
+                  <td>{{ formatDate(job.updated_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button @click="handleRun" class="btn btn-primary" :disabled="runningJob">
-            <span v-if="runningJob">Running...</span>
-            <span v-else>Run Now</span>
-          </button>
-          <button @click="showEditForm = true" class="btn btn-secondary">Edit</button>
-          <button @click="handleDelete" class="btn btn-danger">Delete</button>
-        </div>
-      </div>
 
-      <!-- Job Info Cards -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4 mb-6">
-        <div class="bg-white border border-gray-light p-6">
-          <h3 class="m-0 mb-4 text-black font-black uppercase tracking-tight text-sm pb-2 border-b border-gray-light">Details</h3>
-          <div class="flex py-2 border-b border-gray-light last:border-b-0">
-            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Description:</span>
-            <span class="text-black">{{ job.description || 'No description' }}</span>
-          </div>
-          <div class="flex py-2 border-b border-gray-light last:border-b-0">
-            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Timezone:</span>
-            <span class="text-black">{{ job.timezone || 'UTC' }}</span>
-          </div>
-          <div class="flex py-2 border-b border-gray-light last:border-b-0">
-            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Timeout:</span>
-            <span class="text-black">{{ job.timeout_seconds }}s</span>
-          </div>
-          <div class="flex py-2 border-b border-gray-light last:border-b-0">
-            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Retries:</span>
-            <span class="text-black">{{ job.retry_count }} (delay: {{ job.retry_delay_seconds }}s)</span>
-          </div>
-          <div class="flex py-2 border-b border-gray-light last:border-b-0">
-            <span class="font-black text-black text-xs uppercase tracking-tight w-[100px] flex-shrink-0">Created:</span>
-            <span class="text-gray-medium text-[0.8125rem]">{{ formatDate(job.created_at) }}</span>
-          </div>
-        </div>
-
-        <div class="bg-white border border-gray-light p-6">
-          <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-light">
-            <h3 class="m-0 text-black font-black uppercase tracking-tight text-sm">Schedule</h3>
+        <!-- Schedule -->
+        <div class="card">
+          <div class="card-header">
+            Schedule
             <button @click="showScheduleEditor = true" class="btn btn-small">
-              {{ schedule ? 'Edit' : 'Add' }}
+              {{ schedule ? 'Edit' : 'Add Schedule' }}
             </button>
           </div>
-          <div v-if="scheduleLoading" class="text-gray-dark text-sm">Loading...</div>
-          <div v-else-if="schedule">
-            <ScheduleViewer :schedule="schedule" />
+          <div class="card-body">
+            <div v-if="scheduleLoading" class="text-muted">Loading...</div>
+            <div v-else-if="schedule">
+              <ScheduleViewer :schedule="schedule" />
+            </div>
+            <div v-else class="empty-schedule">
+              <p>No schedule configured</p>
+              <p class="text-small text-muted">Job will only run when triggered manually</p>
+            </div>
           </div>
-          <div v-else class="text-center py-4 text-gray-dark">
-            <p class="m-0">No schedule configured</p>
-            <p class="m-0 text-xs text-gray-medium">Job will only run when triggered manually</p>
+        </div>
+
+        <!-- Script -->
+        <div class="card">
+          <div class="card-header">Script</div>
+          <div class="card-body" style="padding: 0;">
+            <pre class="script-preview">{{ job.script }}</pre>
           </div>
+        </div>
+
+        <!-- Recent Runs -->
+        <div class="card">
+          <div class="card-header">
+            Recent Runs
+            <router-link :to="`/runs?job_id=${job.id}`" class="btn btn-small">View All</router-link>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div v-if="!runs.length" class="empty-state" style="margin: 0; border: 0;">
+              <p>No runs yet. Click "Run Now" to execute this job.</p>
+            </div>
+            <table v-else class="full-width">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Status</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                  <th>Exit Code</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(run, index) in runs" :key="run.id">
+                  <td>{{ index + 1 }}.</td>
+                  <td><StatusBadge :status="run.status" /></td>
+                  <td>{{ formatDate(run.started_at) }}</td>
+                  <td class="number">{{ formatDuration(run.duration_ms) }}</td>
+                  <td class="number">{{ run.exit_code ?? '-' }}</td>
+                  <td>
+                    <a href="#" @click.prevent="goToRun(run.id)">view logs</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">Quick Actions</div>
+        <div class="sidebar-box-content">
+          <p class="mb-10">
+            <button @click="handleRun" class="btn btn-primary" style="width: 100%;" :disabled="runningJob">
+              {{ runningJob ? 'Running...' : 'Run Now' }}
+            </button>
+          </p>
+          <p class="mb-10">
+            <button @click="showEditForm = true" class="btn" style="width: 100%;">
+              Edit Job
+            </button>
+          </p>
+          <p class="mb-0">
+            <router-link :to="`/runs?job_id=${job?.id}`" class="btn" style="width: 100%; text-align: center;">
+              View All Runs
+            </router-link>
+          </p>
         </div>
       </div>
 
-      <!-- Script Preview -->
-      <div class="bg-white border border-gray-light p-6 mb-6">
-        <h3 class="m-0 mb-4 text-black font-black uppercase tracking-tight text-sm pb-2 border-b border-gray-light">Script</h3>
-        <pre class="script-preview">{{ job.script }}</pre>
-      </div>
-
-      <!-- Recent Runs -->
-      <div class="bg-white border border-gray-light p-6">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-light">
-          <h3 class="m-0 text-black font-black uppercase tracking-tight text-sm">Recent Runs</h3>
-          <router-link :to="`/runs?job_id=${job.id}`" class="btn btn-small">
-            View All
-          </router-link>
+      <div class="sidebar-box" v-if="job">
+        <div class="sidebar-box-header">Job Info</div>
+        <div class="sidebar-box-content">
+          <p class="text-small"><strong>ID:</strong> {{ job.id }}</p>
+          <p class="text-small"><strong>Status:</strong> {{ job.enabled ? 'Enabled' : 'Disabled' }}</p>
+          <p class="text-small mb-0"><strong>Timezone:</strong> {{ job.timezone || 'UTC' }}</p>
         </div>
-        <div v-if="!runs.length" class="text-center py-4 text-gray-dark">
-          <p>No runs yet</p>
-        </div>
-        <table v-else class="w-full border-collapse text-sm">
-          <thead class="border-b border-gray-light">
-            <tr>
-              <th class="px-4 py-3 text-left font-black text-xs uppercase tracking-tight border-r border-gray-light">Status</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Started</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Duration</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight border-r border-gray-light">Exit Code</th>
-              <th class="px-4 py-3 text-left font-black text-black text-xs uppercase tracking-tight">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(run, index) in runs" :key="run.id" :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-lighter'" class="border-b border-gray-light hover:bg-gray-light">
-              <td class="px-4 py-3 border-r border-gray-light"><StatusBadge :status="run.status" /></td>
-              <td class="px-4 py-3 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(run.started_at) }}</td>
-              <td class="px-4 py-3 text-black border-r border-gray-light">{{ formatDuration(run.duration_ms) }}</td>
-              <td class="px-4 py-3 text-black border-r border-gray-light">{{ run.exit_code ?? '-' }}</td>
-              <td class="px-4 py-3">
-                <button @click="goToRun(run.id)" class="btn btn-small">View</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </div>
-    </template>
+    </div>
 
     <!-- Edit Form Modal -->
     <JobEditForm
@@ -250,19 +307,72 @@ function formatDuration(ms) {
 </template>
 
 <style scoped>
-/* Script preview - specialized dark theme styling */
+.back-link {
+  margin-bottom: 10px;
+}
+
+.back-link a {
+  font-size: 12px;
+}
+
+.job-description {
+  color: #666666;
+  margin: 5px 0 0 0;
+  font-size: 13px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.details-table {
+  width: 100%;
+  margin: 0;
+}
+
+.details-table th {
+  width: 120px;
+  background: #f4f4f4;
+  font-weight: bold;
+  text-align: left;
+}
+
+.details-table td code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border: 1px solid #cccccc;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+}
+
+.empty-schedule {
+  text-align: center;
+  padding: 20px;
+  color: #666666;
+}
+
+.empty-schedule p {
+  margin: 0;
+}
+
 .script-preview {
-  background: var(--gray-dark);
-  color: var(--white);
-  padding: 1rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.875rem;
+  background: #333333;
+  color: #ffffff;
+  padding: 15px;
+  margin: 0;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
   line-height: 1.5;
   overflow-x: auto;
-  margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
+  border: none;
 }
 </style>

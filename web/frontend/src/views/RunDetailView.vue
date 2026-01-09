@@ -120,172 +120,290 @@ function goToJob() {
 </script>
 
 <template>
-  <div>
-    <div v-if="loading && !run" class="loading-container">
-      <div class="spinner-large"></div>
-      <p>Loading run details...</p>
-    </div>
+  <div class="main-container">
+    <div class="content-area">
+      <div v-if="loading && !run" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading run details...</p>
+      </div>
 
-    <div v-else-if="error && !run" class="error-container">
-      <p>{{ error }}</p>
-      <button @click="router.push('/runs')" class="btn btn-secondary">Back to Runs</button>
-    </div>
+      <div v-else-if="error && !run" class="error-message">
+        {{ error }}
+        <button @click="router.push('/runs')" class="btn btn-small" style="margin-left: 10px;">Back to Runs</button>
+      </div>
 
-    <template v-else-if="run">
-      <!-- Header -->
-      <div class="flex justify-between items-start flex-wrap gap-4 mb-6">
-        <div class="flex flex-col gap-2">
-          <button @click="router.push('/runs')" class="bg-none border-none text-black p-0 cursor-pointer text-sm underline font-bold text-left">
-            &larr; Back to Runs
-          </button>
-          <div class="flex items-center gap-3">
-            <h1 class="m-0 text-black font-black uppercase tracking-tight">Run Details</h1>
+      <template v-else-if="run">
+        <!-- Back Link -->
+        <p class="back-link">
+          <a href="#" @click.prevent="router.push('/runs')">&larr; Back to Runs</a>
+        </p>
+
+        <!-- Header -->
+        <div class="page-header">
+          <div>
+            <h1 style="margin: 0;">Run Details</h1>
+          </div>
+          <div class="header-actions">
+            <button @click="goToJob" class="btn">View Job</button>
+            <button @click="refreshLogs" class="btn" :disabled="loading">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Run Info -->
+        <div class="card">
+          <div class="card-header">
+            Run Information
             <StatusBadge :status="run.status" />
           </div>
-        </div>
-        <div class="flex gap-2">
-          <button @click="goToJob" class="btn btn-secondary">View Job</button>
-          <button @click="refreshLogs" class="btn btn-secondary" :disabled="loading">
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <!-- Run Info -->
-      <div class="bg-white border border-gray-light p-6 mb-6">
-        <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Job ID</span>
-            <span class="text-sm text-black">
-              <a @click.prevent="goToJob" href="#" class="text-black underline font-bold cursor-pointer">{{ run.job_id }}</a>
-            </span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Status</span>
-            <span class="text-sm"><StatusBadge :status="run.status" /></span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Started</span>
-            <span class="text-sm text-gray-medium">{{ formatDate(run.started_at) }}</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Finished</span>
-            <span class="text-sm text-gray-medium">{{ formatDate(run.finished_at) }}</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Duration</span>
-            <span class="text-sm text-black">{{ formatDuration(run.duration_ms) }}</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Exit Code</span>
-            <span class="text-sm text-black font-bold">{{ run.exit_code ?? '-' }}</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Trigger</span>
-            <span class="trigger-badge" :class="run.trigger_type || 'manual'">
-              {{ run.trigger_type || 'manual' }}
-            </span>
-          </div>
-          <div v-if="run.error_message" class="flex flex-col gap-1 col-span-full">
-            <span class="text-xs uppercase tracking-tight text-black font-black">Error</span>
-            <span class="text-sm text-black font-bold">{{ run.error_message }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Logs -->
-      <div class="bg-white border border-gray-light overflow-hidden">
-        <div class="flex justify-between items-center p-6 border-b border-gray-light">
-          <h2 class="m-0 text-black font-black uppercase tracking-tight text-sm">Logs</h2>
-          <div class="flex items-center gap-4">
-            <label class="flex items-center gap-2 text-sm text-black cursor-pointer font-bold">
-              <input type="checkbox" v-model="autoScroll" />
-              <span>Auto-scroll</span>
-            </label>
-            <span v-if="wsConnected" class="ws-status connected text-xs px-2 py-1 border border-gray-light font-bold uppercase tracking-tight">
-              Live streaming
-            </span>
-            <span v-else-if="run.status === 'running'" class="ws-status disconnected text-xs px-2 py-1 border border-gray-light font-bold uppercase tracking-tight">
-              Reconnecting...
-            </span>
+          <div class="card-body">
+            <table class="details-table">
+              <tbody>
+                <tr>
+                  <th>Run ID</th>
+                  <td><code>{{ run.id }}</code></td>
+                </tr>
+                <tr>
+                  <th>Job</th>
+                  <td><a href="#" @click.prevent="goToJob">{{ run.job_id }}</a></td>
+                </tr>
+                <tr>
+                  <th>Status</th>
+                  <td><StatusBadge :status="run.status" /></td>
+                </tr>
+                <tr>
+                  <th>Trigger</th>
+                  <td><span class="badge">{{ run.trigger_type || 'manual' }}</span></td>
+                </tr>
+                <tr>
+                  <th>Started</th>
+                  <td>{{ formatDate(run.started_at) }}</td>
+                </tr>
+                <tr>
+                  <th>Finished</th>
+                  <td>{{ formatDate(run.finished_at) }}</td>
+                </tr>
+                <tr>
+                  <th>Duration</th>
+                  <td>{{ formatDuration(run.duration_ms) }}</td>
+                </tr>
+                <tr>
+                  <th>Exit Code</th>
+                  <td><strong>{{ run.exit_code ?? '-' }}</strong></td>
+                </tr>
+                <tr v-if="run.error_message">
+                  <th>Error</th>
+                  <td class="error-text">{{ run.error_message }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <div ref="logsContainer" class="logs-container">
-          <div v-if="!logs.length" class="flex items-center justify-center min-h-[200px] text-gray-light">
-            <p v-if="run.status === 'pending'">Waiting for job to start...</p>
-            <p v-else-if="run.status === 'running'">Waiting for output...</p>
-            <p v-else>No output captured</p>
+        <!-- Logs -->
+        <div class="card">
+          <div class="card-header">
+            <span>Logs</span>
+            <div class="log-controls">
+              <label class="autoscroll-label">
+                <input type="checkbox" v-model="autoScroll" />
+                Auto-scroll
+              </label>
+              <span v-if="wsConnected" class="ws-status connected">Live</span>
+              <span v-else-if="run.status === 'running'" class="ws-status disconnected">Reconnecting...</span>
+            </div>
           </div>
-          <div v-else class="log-entries">
-            <div
-              v-for="(log, index) in logs"
-              :key="index"
-              class="log-entry"
-              :class="getStreamClass(log.stream)"
-            >
-              <span v-if="log.timestamp" class="log-timestamp">
-                {{ new Date(log.timestamp).toLocaleTimeString() }}
-              </span>
-              <span v-if="log.stream" class="log-stream">[{{ log.stream }}]</span>
-              <span class="log-content">{{ log.content }}</span>
+          <div class="card-body" style="padding: 0;">
+            <div ref="logsContainer" class="logs-container">
+              <div v-if="!logs.length" class="empty-logs">
+                <p v-if="run.status === 'pending'">Waiting for job to start...</p>
+                <p v-else-if="run.status === 'running'">Waiting for output...</p>
+                <p v-else>No output captured</p>
+              </div>
+              <div v-else class="log-entries">
+                <div
+                  v-for="(log, index) in logs"
+                  :key="index"
+                  class="log-entry"
+                  :class="getStreamClass(log.stream)"
+                >
+                  <span v-if="log.timestamp" class="log-timestamp">{{ new Date(log.timestamp).toLocaleTimeString() }}</span>
+                  <span v-if="log.stream" class="log-stream">[{{ log.stream }}]</span>
+                  <span class="log-content">{{ log.content }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </template>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">Quick Actions</div>
+        <div class="sidebar-box-content">
+          <p class="mb-10">
+            <button @click="goToJob" class="btn" style="width: 100%;">View Job</button>
+          </p>
+          <p class="mb-10">
+            <button @click="refreshLogs" class="btn" style="width: 100%;" :disabled="loading">Refresh Logs</button>
+          </p>
+          <p class="mb-0">
+            <router-link to="/runs" class="btn" style="width: 100%; text-align: center;">All Runs</router-link>
+          </p>
+        </div>
       </div>
-    </template>
+
+      <div class="sidebar-box" v-if="run">
+        <div class="sidebar-box-header">Run Status</div>
+        <div class="sidebar-box-content">
+          <p class="text-small"><strong>Status:</strong> <StatusBadge :status="run.status" /></p>
+          <p class="text-small"><strong>Exit Code:</strong> {{ run.exit_code ?? 'N/A' }}</p>
+          <p class="text-small mb-0"><strong>Duration:</strong> {{ formatDuration(run.duration_ms) }}</p>
+        </div>
+      </div>
+
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">Legend</div>
+        <div class="sidebar-box-content">
+          <p class="text-small"><span class="legend-stdout">[stdout]</span> Standard output</p>
+          <p class="text-small"><span class="legend-stderr">[stderr]</span> Error output</p>
+          <p class="text-small mb-0"><span class="legend-system">[system]</span> System messages</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Trigger badge styling */
-.trigger-badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--gray-light);
-  border-radius: 0;
-  background: var(--white);
-  color: var(--black);
-  width: fit-content;
+.back-link {
+  margin-bottom: 10px;
+}
+
+.back-link a {
+  font-size: 12px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.details-table {
+  width: 100%;
+  margin: 0;
+}
+
+.details-table th {
+  width: 100px;
+  background: #f4f4f4;
+  font-weight: bold;
+  text-align: left;
+}
+
+.details-table td code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border: 1px solid #cccccc;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+}
+
+.error-text {
+  color: #cc0000;
+}
+
+.log-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.autoscroll-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.autoscroll-label input {
+  width: auto;
 }
 
 .ws-status {
-  background: var(--white);
-  color: var(--black);
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid;
 }
 
-/* Specialized log viewer styling - dark terminal theme */
+.ws-status.connected {
+  background: #ccffcc;
+  border-color: #99cc99;
+  color: #006600;
+}
+
+.ws-status.disconnected {
+  background: #ffffcc;
+  border-color: #cccc99;
+  color: #666600;
+}
+
+.logs-container {
+  background: #1e1e1e;
+  min-height: 300px;
+  max-height: 500px;
+  overflow: auto;
+}
+
+.empty-logs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #666666;
+}
+
+.empty-logs p {
+  margin: 0;
+}
+
 .log-entries {
-  padding: 1rem;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 0.8125rem;
+  padding: 10px;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
   line-height: 1.5;
 }
 
 .log-entry {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.125rem 0;
-  color: var(--white);
+  gap: 8px;
+  padding: 1px 0;
+  color: #cccccc;
 }
 
 .log-entry.log-stderr {
-  color: var(--white);
-  font-weight: 700;
+  color: #ff6b6b;
 }
 
 .log-entry.log-system {
-  color: var(--white);
+  color: #888888;
   font-style: italic;
 }
 
 .log-timestamp {
-  color: var(--gray-light);
+  color: #666666;
   flex-shrink: 0;
 }
 
 .log-stream {
-  color: var(--gray-light);
+  color: #888888;
   flex-shrink: 0;
   min-width: 60px;
 }
@@ -293,5 +411,24 @@ function goToJob() {
 .log-content {
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.legend-stdout {
+  color: #cccccc;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+}
+
+.legend-stderr {
+  color: #ff6b6b;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+}
+
+.legend-system {
+  color: #888888;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  font-style: italic;
 }
 </style>

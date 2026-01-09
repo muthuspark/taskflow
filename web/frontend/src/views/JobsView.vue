@@ -60,90 +60,123 @@ function getStatusText(job) {
 </script>
 
 <template>
-  <div>
-    <div class="page-header flex justify-between items-center mb-6">
-      <h1 class="m-0 text-black font-black uppercase tracking-tight">Jobs</h1>
-      <button @click="goToCreate" class="btn btn-primary">
-        Create New Job
-      </button>
+  <div class="main-container">
+    <div class="content-area">
+      <div class="page-header">
+        <h1 style="margin: 0;">Jobs</h1>
+        <button @click="goToCreate" class="btn btn-primary">
+          Create New Job
+        </button>
+      </div>
+
+      <p>Manage your scheduled tasks. Each job can be configured with a script, schedule, timeout, and retry settings.</p>
+
+      <div v-if="loading && !jobs.length" class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading jobs...</p>
+      </div>
+
+      <div v-else-if="error" class="error-message">
+        {{ error }}
+        <button @click="retry" class="btn btn-small" style="margin-left: 10px;">Retry</button>
+      </div>
+
+      <div v-else-if="!jobs.length" class="empty-state">
+        <h2>No jobs yet</h2>
+        <p>Create your first job to get started with task scheduling.</p>
+        <button @click="goToCreate" class="btn btn-primary">
+          Create Your First Job
+        </button>
+      </div>
+
+      <template v-else>
+        <h2>All Jobs</h2>
+        <p class="table-title">List of all configured jobs</p>
+
+        <table class="full-width">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Job Name</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th>Timeout</th>
+              <th>Retries</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(job, index) in jobs" :key="job.id">
+              <td>{{ index + 1 }}.</td>
+              <td>
+                <a href="#" @click.prevent="goToJob(job.id)">{{ job.name }}</a>
+              </td>
+              <td>
+                <span v-if="job.description">{{ job.description }}</span>
+                <span v-else class="text-muted" style="font-style: italic;">No description</span>
+              </td>
+              <td>
+                <StatusBadge :status="getStatusText(job)" />
+              </td>
+              <td class="number">{{ job.timeout_seconds }}s</td>
+              <td class="number">{{ job.retry_count }}</td>
+              <td>{{ formatDate(job.created_at) }}</td>
+              <td>
+                <button @click="handleRun(job.id)" class="btn btn-small btn-primary" style="margin-right: 4px;">
+                  Run
+                </button>
+                <button @click="handleDelete(job.id)" class="btn btn-small btn-danger">
+                  Delete
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-note">showing all {{ jobs.length }} job(s)</div>
+      </template>
     </div>
 
-    <div v-if="loading && !jobs.length" class="loading-container">
-      <div class="spinner-large"></div>
-      <p>Loading jobs...</p>
-    </div>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Quick Actions
+        </div>
+        <div class="sidebar-box-content">
+          <p class="mb-10">
+            <button @click="goToCreate" class="btn btn-primary" style="width: 100%;">
+              Create New Job
+            </button>
+          </p>
+          <p class="mb-0">
+            <router-link to="/runs" class="btn" style="width: 100%; text-align: center;">
+              View Run History
+            </router-link>
+          </p>
+        </div>
+      </div>
 
-    <div v-else-if="error" class="error-container">
-      <p>{{ error }}</p>
-      <button @click="retry" class="btn btn-primary">Retry</button>
-    </div>
-
-    <div v-else-if="!jobs.length" class="empty-state">
-      <h2>No jobs yet</h2>
-      <p>Create your first job to get started with task scheduling.</p>
-      <button @click="goToCreate" class="btn btn-primary">
-        Create Your First Job
-      </button>
-    </div>
-
-    <div v-else class="bg-white border border-gray-light overflow-x-auto">
-      <table class="w-full border-collapse text-sm">
-        <thead class="bg-gray-lighter border-b border-gray-light">
-          <tr>
-            <th class="col-name px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Job Name</th>
-            <th class="col-description px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Description</th>
-            <th class="col-status px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Status</th>
-            <th class="col-timeout px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Timeout</th>
-            <th class="col-retries px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Retries</th>
-            <th class="col-created px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs border-r border-gray-light">Created</th>
-            <th class="col-actions px-4 py-4 text-left font-black text-black uppercase tracking-tight text-xs">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="job in jobs" :key="job.id" class="border-b border-gray-light cursor-pointer hover:bg-gray-lighter transition-none" @click="goToJob(job.id)">
-            <td class="col-name px-4 py-4 text-black font-black uppercase tracking-tight border-r border-gray-light">
-              {{ job.name }}
-            </td>
-            <td class="col-description px-4 py-4 text-gray-medium border-r border-gray-light">
-              <span v-if="job.description" class="description-text">{{ job.description }}</span>
-              <span v-else class="italic">No description</span>
-            </td>
-            <td class="col-status px-4 py-4 border-r border-gray-light">
-              <StatusBadge :status="getStatusText(job)" />
-            </td>
-            <td class="col-timeout px-4 py-4 text-black border-r border-gray-light">{{ job.timeout_seconds }}s</td>
-            <td class="col-retries px-4 py-4 text-black border-r border-gray-light">{{ job.retry_count }}</td>
-            <td class="col-created px-4 py-4 text-gray-medium text-[0.8125rem] border-r border-gray-light">{{ formatDate(job.created_at) }}</td>
-            <td class="col-actions px-4 py-4 whitespace-nowrap" @click.stop>
-              <button @click="handleRun(job.id)" class="btn btn-primary btn-small mr-2">
-                Run
-              </button>
-              <button @click="handleDelete(job.id)" class="btn btn-danger btn-small">
-                Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="sidebar-box">
+        <div class="sidebar-box-header">
+          Job Settings
+        </div>
+        <div class="sidebar-box-content">
+          <p class="text-small">
+            <strong>Timeout:</strong> Maximum execution time before the job is terminated.
+          </p>
+          <p class="text-small">
+            <strong>Retries:</strong> Number of retry attempts if the job fails.
+          </p>
+          <p class="text-small mb-0">
+            <strong>Status:</strong> Enable or disable job scheduling.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Column widths for table */
-.col-name { min-width: 150px; }
-.col-description { min-width: 200px; }
-.col-status { min-width: 100px; }
-.col-timeout { min-width: 80px; }
-.col-retries { min-width: 80px; }
-.col-created { min-width: 100px; }
-.col-actions { min-width: 140px; }
-
-/* Line clamping for description (1 line max) */
-.description-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* Using global W3Techs-style CSS */
 </style>
