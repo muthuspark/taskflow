@@ -17,16 +17,18 @@ func NewJobValidator() *JobValidator {
 
 // JobRequest represents the common fields for create/update requests
 type JobRequest struct {
-	Name              string
-	Description       string
-	Script            string
-	WorkingDir        string
-	TimeoutSeconds    int
-	RetryCount        int
-	RetryDelaySeconds int
-	NotifyEmails      string
-	NotifyOn          string
-	Timezone          string
+	Name              string           `json:"name"`
+	Description       string           `json:"description"`
+	Script            string           `json:"script"`
+	WorkingDir        string           `json:"working_dir"`
+	TimeoutSeconds    int              `json:"timeout_seconds"`
+	RetryCount        int              `json:"retry_count"`
+	RetryDelaySeconds int              `json:"retry_delay_seconds"`
+	NotifyEmails      string           `json:"notify_emails"`
+	NotifyOn          string           `json:"notify_on"`
+	Timezone          string           `json:"timezone"`
+	Enabled           bool             `json:"enabled"`
+	Schedule          *ScheduleRequest `json:"schedule,omitempty"`
 }
 
 // ValidationError represents a validation error with code
@@ -97,14 +99,19 @@ func (v *JobValidator) ValidateJobRequest(req *JobRequest) *ValidationError {
 	return nil
 }
 
+// validNotifyValues is a map for O(1) lookup of valid notify_on values
+var validNotifyValues = map[string]bool{
+	internal.NotifyAlways:  true,
+	internal.NotifyFailure: true,
+	internal.NotifySuccess: true,
+}
+
 // isValidNotifyOn checks if the notify_on value is valid
 func (v *JobValidator) isValidNotifyOn(notifyOn string) bool {
 	if notifyOn == "" {
 		return true // Empty is allowed (uses default)
 	}
-	return notifyOn == internal.NotifyAlways ||
-		notifyOn == internal.NotifyFailure ||
-		notifyOn == internal.NotifySuccess
+	return validNotifyValues[notifyOn]
 }
 
 // ApplyDefaults applies default values to job request fields
@@ -143,14 +150,14 @@ func (v *JobValidator) ToJobModel(req *JobRequest, jobID *string) *store.Job {
 	return job
 }
 
-// ValidateScheduleRequest validates schedule fields
+// ScheduleRequest represents the fields for schedule create/update requests
 type ScheduleRequest struct {
-	Years    []int
-	Months   []int
-	Days     []int
-	Weekdays []int
-	Hours    []int
-	Minutes  []int
+	Years    []int `json:"years"`
+	Months   []int `json:"months"`
+	Days     []int `json:"days"`
+	Weekdays []int `json:"weekdays"`
+	Hours    []int `json:"hours"`
+	Minutes  []int `json:"minutes"`
 }
 
 // ValidateScheduleRequest validates all schedule fields

@@ -17,6 +17,7 @@ const jobsStore = useJobsStore()
 const name = ref('')
 const description = ref('')
 const script = ref('')
+const workingDir = ref('')
 const timeout = ref(300)
 const retryCount = ref(0)
 const retryDelay = ref(60)
@@ -32,6 +33,7 @@ onMounted(() => {
   name.value = props.job.name || ''
   description.value = props.job.description || ''
   script.value = props.job.script || ''
+  workingDir.value = props.job.working_dir || ''
   timeout.value = props.job.timeout_seconds || 300
   retryCount.value = props.job.retry_count || 0
   retryDelay.value = props.job.retry_delay_seconds || 60
@@ -79,6 +81,7 @@ async function handleSubmit() {
       name: name.value.trim(),
       description: description.value.trim(),
       script: script.value,
+      working_dir: workingDir.value.trim() || '/tmp',
       timeout_seconds: parseInt(timeout.value),
       retry_count: parseInt(retryCount.value),
       retry_delay_seconds: parseInt(retryDelay.value),
@@ -169,6 +172,18 @@ const timezones = [
             :disabled="loading"
           ></textarea>
           <span v-if="errors.script" class="field-error">{{ errors.script }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-workingDir">Working Directory</label>
+          <input
+            id="edit-workingDir"
+            v-model="workingDir"
+            type="text"
+            placeholder="/tmp"
+            :disabled="loading"
+          />
+          <span class="field-hint">Directory where the script will be executed (default: /tmp)</span>
         </div>
 
         <div class="form-row">
@@ -385,6 +400,11 @@ const timezones = [
   font-size: 0.75rem;
   color: var(--black);
   font-weight: 900;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--gray-dark);
 }
 
 .error-message {

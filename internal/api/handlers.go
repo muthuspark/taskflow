@@ -201,48 +201,28 @@ func (h *JobHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Name              string `json:"name"`
-		Description       string `json:"description"`
-		Script            string `json:"script"`
-		WorkingDir        string `json:"working_dir"`
-		TimeoutSeconds    int    `json:"timeout_seconds"`
-		RetryCount        int    `json:"retry_count"`
-		RetryDelaySeconds int    `json:"retry_delay_seconds"`
-		NotifyEmails      string `json:"notify_emails"`
-		NotifyOn          string `json:"notify_on"`
-		Timezone          string `json:"timezone"`
-	}
-
+	var req JobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
 		return
 	}
 
-	// Convert request to validator format
-	jobReq := &JobRequest{
-		Name:              req.Name,
-		Description:       req.Description,
-		Script:            req.Script,
-		WorkingDir:        req.WorkingDir,
-		TimeoutSeconds:    req.TimeoutSeconds,
-		RetryCount:        req.RetryCount,
-		RetryDelaySeconds: req.RetryDelaySeconds,
-		NotifyEmails:      req.NotifyEmails,
-		NotifyOn:          req.NotifyOn,
-		Timezone:          req.Timezone,
-	}
-
-	// Validate using validator
-	if validErr := h.validator.ValidateJobRequest(jobReq); validErr != nil {
+	if validErr := h.validator.ValidateJobRequest(&req); validErr != nil {
 		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
 		return
 	}
 
-	// Apply defaults
-	h.validator.ApplyDefaults(jobReq)
+	// Validate schedule if provided
+	if req.Schedule != nil {
+		if validErr := h.validator.ValidateScheduleRequest(req.Schedule); validErr != nil {
+			WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
+			return
+		}
+	}
 
-	newJob := h.validator.ToJobModel(jobReq, nil)
+	h.validator.ApplyDefaults(&req)
+
+	newJob := h.validator.ToJobModel(&req, nil)
 	newJob.Enabled = true
 	newJob.CreatedBy = userID
 
@@ -250,6 +230,27 @@ func (h *JobHandlers) CreateJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to create job", "INTERNAL_ERROR")
 		return
+	}
+
+	// Save schedule if provided
+	if req.Schedule != nil {
+		schedule := &store.Schedule{
+			JobID:    createdJob.ID,
+			Years:    req.Schedule.Years,
+			Months:   req.Schedule.Months,
+			Days:     req.Schedule.Days,
+			Weekdays: req.Schedule.Weekdays,
+			Hours:    req.Schedule.Hours,
+			Minutes:  req.Schedule.Minutes,
+		}
+		if err := h.store.SetJobSchedule(createdJob.ID, schedule); err != nil {
+			// Job was created but schedule failed - delete the job to maintain consistency
+			if delErr := h.store.DeleteJob(createdJob.ID); delErr != nil {
+				log.Printf("Failed to rollback job %s after schedule error: %v\n", createdJob.ID, delErr)
+			}
+			WriteError(w, http.StatusInternalServerError, "Failed to set schedule", "INTERNAL_ERROR")
+			return
+		}
 	}
 
 	WriteJSON(w, http.StatusCreated, createdJob)
@@ -284,51 +285,48 @@ func (h *JobHandlers) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Name              string `json:"name"`
-		Description       string `json:"description"`
-		Script            string `json:"script"`
-		WorkingDir        string `json:"working_dir"`
-		TimeoutSeconds    int    `json:"timeout_seconds"`
-		RetryCount        int    `json:"retry_count"`
-		RetryDelaySeconds int    `json:"retry_delay_seconds"`
-		NotifyEmails      string `json:"notify_emails"`
-		NotifyOn          string `json:"notify_on"`
-		Timezone          string `json:"timezone"`
-		Enabled           bool   `json:"enabled"`
-	}
-
+	var req JobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
 		return
 	}
 
-	// Convert request to validator format
-	jobReq := &JobRequest{
-		Name:              req.Name,
-		Description:       req.Description,
-		Script:            req.Script,
-		WorkingDir:        req.WorkingDir,
-		TimeoutSeconds:    req.TimeoutSeconds,
-		RetryCount:        req.RetryCount,
-		RetryDelaySeconds: req.RetryDelaySeconds,
-		NotifyEmails:      req.NotifyEmails,
-		NotifyOn:          req.NotifyOn,
-		Timezone:          req.Timezone,
-	}
-
-	// Validate using validator
-	if validErr := h.validator.ValidateJobRequest(jobReq); validErr != nil {
+	if validErr := h.validator.ValidateJobRequest(&req); validErr != nil {
 		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
 		return
 	}
 
-	job := h.validator.ToJobModel(jobReq, &jobID)
+	// Validate schedule if provided
+	if req.Schedule != nil {
+		if validErr := h.validator.ValidateScheduleRequest(req.Schedule); validErr != nil {
+			WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
+			return
+		}
+	}
+
+	job := h.validator.ToJobModel(&req, &jobID)
 	job.Enabled = req.Enabled
 
 	if err := h.store.UpdateJob(job); err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to update job", "INTERNAL_ERROR")
 		return
+	}
+
+	// Update schedule if provided
+	if req.Schedule != nil {
+		schedule := &store.Schedule{
+			JobID:    jobID,
+			Years:    req.Schedule.Years,
+			Months:   req.Schedule.Months,
+			Days:     req.Schedule.Days,
+			Weekdays: req.Schedule.Weekdays,
+			Hours:    req.Schedule.Hours,
+			Minutes:  req.Schedule.Minutes,
+		}
+		if err := h.store.SetJobSchedule(jobID, schedule); err != nil {
+			WriteError(w, http.StatusInternalServerError, "Job updated but failed to set schedule", "INTERNAL_ERROR")
+			return
+		}
 	}
 
 	updatedJob, _ := h.store.GetJob(jobID)
@@ -378,8 +376,8 @@ func (h *JobHandlers) TriggerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enqueue the job to the scheduler's job queue to maintain sequential execution
-	h.scheduler.Enqueue(job)
+	// Enqueue the job with the run to maintain sequential execution
+	h.scheduler.EnqueueWithRun(job, run)
 
 	WriteJSON(w, http.StatusCreated, run)
 }
@@ -495,32 +493,14 @@ func (h *ScheduleHandlers) SetJobSchedule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var req struct {
-		Years    []int `json:"years"`
-		Months   []int `json:"months"`
-		Days     []int `json:"days"`
-		Weekdays []int `json:"weekdays"`
-		Hours    []int `json:"hours"`
-		Minutes  []int `json:"minutes"`
-	}
-
+	var req ScheduleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
 		return
 	}
 
-	// Validate schedule using validator
 	validator := NewJobValidator()
-	schedReq := &ScheduleRequest{
-		Years:    req.Years,
-		Months:   req.Months,
-		Days:     req.Days,
-		Weekdays: req.Weekdays,
-		Hours:    req.Hours,
-		Minutes:  req.Minutes,
-	}
-
-	if validErr := validator.ValidateScheduleRequest(schedReq); validErr != nil {
+	if validErr := validator.ValidateScheduleRequest(&req); validErr != nil {
 		WriteError(w, http.StatusBadRequest, validErr.Message, validErr.Code)
 		return
 	}

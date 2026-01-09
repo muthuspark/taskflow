@@ -54,7 +54,7 @@ func (s *Store) GetJob(id string) (*Job, error) {
 		&job.CreatedAt, &job.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("job not found")
 	}
 	if err != nil {
@@ -152,14 +152,32 @@ func (s *Store) DeleteJob(id string) error {
 
 // SetJobSchedule saves or updates a job's schedule
 func (s *Store) SetJobSchedule(jobID string, schedule *Schedule) error {
-	yearsJSON, _ := json.Marshal(schedule.Years)
-	monthsJSON, _ := json.Marshal(schedule.Months)
-	daysJSON, _ := json.Marshal(schedule.Days)
-	weekdaysJSON, _ := json.Marshal(schedule.Weekdays)
-	hoursJSON, _ := json.Marshal(schedule.Hours)
-	minutesJSON, _ := json.Marshal(schedule.Minutes)
+	yearsJSON, err := json.Marshal(schedule.Years)
+	if err != nil {
+		return fmt.Errorf("failed to marshal years: %w", err)
+	}
+	monthsJSON, err := json.Marshal(schedule.Months)
+	if err != nil {
+		return fmt.Errorf("failed to marshal months: %w", err)
+	}
+	daysJSON, err := json.Marshal(schedule.Days)
+	if err != nil {
+		return fmt.Errorf("failed to marshal days: %w", err)
+	}
+	weekdaysJSON, err := json.Marshal(schedule.Weekdays)
+	if err != nil {
+		return fmt.Errorf("failed to marshal weekdays: %w", err)
+	}
+	hoursJSON, err := json.Marshal(schedule.Hours)
+	if err != nil {
+		return fmt.Errorf("failed to marshal hours: %w", err)
+	}
+	minutesJSON, err := json.Marshal(schedule.Minutes)
+	if err != nil {
+		return fmt.Errorf("failed to marshal minutes: %w", err)
+	}
 
-	_, err := s.db.Exec(
+	_, err = s.db.Exec(
 		`INSERT OR REPLACE INTO schedules (job_id, years, months, days, weekdays, hours, minutes)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		jobID, string(yearsJSON), string(monthsJSON), string(daysJSON),
@@ -178,7 +196,7 @@ func (s *Store) GetJobSchedule(jobID string) (*Schedule, error) {
 		jobID,
 	).Scan(&schedule.ID, &yearsJSON, &monthsJSON, &daysJSON, &weekdaysJSON, &hoursJSON, &minutesJSON)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		// Return empty schedule if none exists
 		return &Schedule{JobID: jobID}, nil
 	}

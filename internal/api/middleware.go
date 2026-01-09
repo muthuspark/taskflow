@@ -27,7 +27,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, store *store.Store) func(http.H
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
+			parts := strings.Fields(authHeader)
 			if len(parts) != 2 || parts[0] != "Bearer" {
 				WriteError(w, http.StatusUnauthorized, "Invalid authorization header", "INVALID_TOKEN")
 				return

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useJobsStore } from '../stores/jobs'
 
@@ -10,15 +10,105 @@ const jobsStore = useJobsStore()
 const name = ref('')
 const description = ref('')
 const script = ref('#!/bin/bash\n\n# Your script here\necho "Hello, TaskFlow!"')
+const workingDir = ref('')
 const timeout = ref(300)
 const retryCount = ref(0)
 const retryDelay = ref(60)
 const enabled = ref(true)
 const timezone = ref('UTC')
 
+// Schedule state
+const scheduleMinutes = ref([0])
+const scheduleHours = ref([9])
+const scheduleDays = ref([])
+const scheduleMonths = ref([])
+const scheduleWeekdays = ref([])
+const showCustomSchedule = ref(false)
+
 const loading = ref(false)
 const error = ref('')
 const errors = ref({})
+
+// Schedule presets
+const schedulePresets = [
+  { label: 'Daily at 9 AM', minutes: [0], hours: [9], days: [], months: [], weekdays: [] },
+  { label: 'Hourly', minutes: [0], hours: [], days: [], months: [], weekdays: [] },
+  { label: 'Daily at midnight', minutes: [0], hours: [0], days: [], months: [], weekdays: [] },
+  { label: 'Weekdays at 9 AM', minutes: [0], hours: [9], days: [], months: [], weekdays: [1, 2, 3, 4, 5] },
+  { label: 'Weekly on Monday', minutes: [0], hours: [0], days: [], months: [], weekdays: [1] },
+  { label: 'Monthly on 1st', minutes: [0], hours: [0], days: [1], months: [], weekdays: [] },
+  { label: 'Custom...', custom: true }
+]
+
+const selectedPreset = ref('Daily at 9 AM')
+
+function applyPreset(preset) {
+  if (preset.custom) {
+    showCustomSchedule.value = true
+    selectedPreset.value = 'Custom...'
+    return
+  }
+  showCustomSchedule.value = false
+  selectedPreset.value = preset.label
+  scheduleMinutes.value = [...preset.minutes]
+  scheduleHours.value = [...preset.hours]
+  scheduleDays.value = [...preset.days]
+  scheduleMonths.value = [...preset.months]
+  scheduleWeekdays.value = [...preset.weekdays]
+}
+
+// Cron preview
+const cronPreview = computed(() => {
+  const min = scheduleMinutes.value.length ? scheduleMinutes.value.join(',') : '*'
+  const hour = scheduleHours.value.length ? scheduleHours.value.join(',') : '*'
+  const dom = scheduleDays.value.length ? scheduleDays.value.join(',') : '*'
+  const month = scheduleMonths.value.length ? scheduleMonths.value.join(',') : '*'
+  const dow = scheduleWeekdays.value.length ? scheduleWeekdays.value.join(',') : '*'
+  return `${min} ${hour} ${dom} ${month} ${dow}`
+})
+
+// Custom schedule helpers
+const minuteOptions = Array.from({ length: 60 }, (_, i) => i)
+const hourOptions = Array.from({ length: 24 }, (_, i) => i)
+const weekdayOptions = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' }
+]
+
+function toggleMinute(value) {
+  const index = scheduleMinutes.value.indexOf(value)
+  if (index === -1) {
+    scheduleMinutes.value.push(value)
+    scheduleMinutes.value.sort((a, b) => a - b)
+  } else {
+    scheduleMinutes.value.splice(index, 1)
+  }
+}
+
+function toggleHour(value) {
+  const index = scheduleHours.value.indexOf(value)
+  if (index === -1) {
+    scheduleHours.value.push(value)
+    scheduleHours.value.sort((a, b) => a - b)
+  } else {
+    scheduleHours.value.splice(index, 1)
+  }
+}
+
+function toggleWeekday(value) {
+  const index = scheduleWeekdays.value.indexOf(value)
+  if (index === -1) {
+    scheduleWeekdays.value.push(value)
+    scheduleWeekdays.value.sort((a, b) => a - b)
+  } else {
+    scheduleWeekdays.value.splice(index, 1)
+  }
+}
 
 // Validation
 function validate() {
@@ -60,11 +150,19 @@ async function handleSubmit() {
       name: name.value.trim(),
       description: description.value.trim(),
       script: script.value,
+      working_dir: workingDir.value.trim() || '/tmp',
       timeout_seconds: parseInt(timeout.value),
       retry_count: parseInt(retryCount.value),
       retry_delay_seconds: parseInt(retryDelay.value),
       enabled: enabled.value,
-      timezone: timezone.value
+      timezone: timezone.value,
+      schedule: {
+        minutes: scheduleMinutes.value.length ? scheduleMinutes.value : null,
+        hours: scheduleHours.value.length ? scheduleHours.value : null,
+        days: scheduleDays.value.length ? scheduleDays.value : null,
+        months: scheduleMonths.value.length ? scheduleMonths.value : null,
+        weekdays: scheduleWeekdays.value.length ? scheduleWeekdays.value : null
+      }
     })
     router.push(`/jobs/${job.id}`)
   } catch (e) {
@@ -162,6 +260,19 @@ const timezones = [
           <span v-if="errors.script" class="text-xs font-black mt-1 block">{{ errors.script }}</span>
           <span class="text-xs text-gray-dark mt-1 block">The script will be executed using bash</span>
         </div>
+
+        <div class="form-group">
+          <label for="workingDir" class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Working Directory</label>
+          <input
+            id="workingDir"
+            v-model="workingDir"
+            type="text"
+            placeholder="/tmp"
+            :disabled="loading"
+            class="w-full px-3 py-2 border border-gray-light focus:border-gray-light focus:outline-none disabled:bg-gray-lighter disabled:cursor-not-allowed"
+          />
+          <span class="text-xs text-gray-dark mt-1 block">Directory where the script will be executed (default: /tmp)</span>
+        </div>
       </div>
 
       <div class="bg-white border border-gray-light p-6">
@@ -218,6 +329,84 @@ const timezones = [
         </div>
       </div>
 
+      <div class="bg-white border border-gray-light p-6">
+        <h2 class="m-0 mb-4 pb-3 border-b border-gray-light text-black font-black uppercase tracking-tight text-lg">Schedule</h2>
+
+        <div class="form-group mb-4">
+          <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Quick Presets</label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="preset in schedulePresets"
+              :key="preset.label"
+              type="button"
+              @click="applyPreset(preset)"
+              :class="['preset-btn', { active: selectedPreset === preset.label }]"
+              :disabled="loading"
+            >
+              {{ preset.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="showCustomSchedule" class="custom-schedule">
+          <div class="form-group mb-4">
+            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Minutes</label>
+            <div class="value-grid minute-grid">
+              <button
+                v-for="m in minuteOptions"
+                :key="m"
+                type="button"
+                @click="toggleMinute(m)"
+                :class="['value-btn', { active: scheduleMinutes.includes(m) }]"
+                :disabled="loading"
+              >
+                {{ m }}
+              </button>
+            </div>
+            <span class="text-xs text-gray-dark mt-1 block">Empty = every minute</span>
+          </div>
+
+          <div class="form-group mb-4">
+            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Hours</label>
+            <div class="value-grid hour-grid">
+              <button
+                v-for="h in hourOptions"
+                :key="h"
+                type="button"
+                @click="toggleHour(h)"
+                :class="['value-btn', { active: scheduleHours.includes(h) }]"
+                :disabled="loading"
+              >
+                {{ h }}
+              </button>
+            </div>
+            <span class="text-xs text-gray-dark mt-1 block">Empty = every hour</span>
+          </div>
+
+          <div class="form-group mb-4">
+            <label class="block font-black text-black mb-2 text-sm uppercase tracking-tight">Days of Week</label>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="d in weekdayOptions"
+                :key="d.value"
+                type="button"
+                @click="toggleWeekday(d.value)"
+                :class="['value-btn weekday-btn', { active: scheduleWeekdays.includes(d.value) }]"
+                :disabled="loading"
+              >
+                {{ d.label }}
+              </button>
+            </div>
+            <span class="text-xs text-gray-dark mt-1 block">Empty = any day</span>
+          </div>
+        </div>
+
+        <div class="cron-preview">
+          <label class="font-black text-black text-sm uppercase tracking-tight">Cron Expression:</label>
+          <code class="ml-2 font-mono text-sm bg-gray-lighter px-2 py-1 border border-gray-light">{{ cronPreview }}</code>
+        </div>
+      </div>
+
       <div v-if="error" class="bg-gray-lighter border border-gray-light p-4 text-center text-black">
         {{ error }}
       </div>
@@ -252,6 +441,90 @@ const timezones = [
   line-height: 1.5;
   resize: vertical;
   padding: 0.75rem !important;
+}
+
+/* Schedule preset buttons */
+.preset-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--gray-light);
+  background: var(--white);
+  cursor: pointer;
+  color: var(--black);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preset-btn:hover {
+  background: var(--gray-lighter);
+}
+
+.preset-btn.active {
+  background: var(--black);
+  color: var(--white);
+}
+
+.preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Schedule value grids */
+.value-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.minute-grid {
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.hour-grid {
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.value-btn {
+  padding: 0.375rem 0.25rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--gray-light);
+  background: var(--white);
+  cursor: pointer;
+  color: var(--black);
+  font-weight: 700;
+}
+
+.value-btn:hover {
+  background: var(--gray-lighter);
+}
+
+.value-btn.active {
+  background: var(--black);
+  color: var(--white);
+}
+
+.value-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.weekday-btn {
+  padding: 0.5rem 0.75rem;
+}
+
+.cron-preview {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: var(--gray-lighter);
+  border: 1px solid var(--gray-light);
+  margin-top: 1rem;
+}
+
+.custom-schedule {
+  border-top: 1px solid var(--gray-light);
+  padding-top: 1rem;
+  margin-top: 1rem;
 }
 
 /* Inline spinner */

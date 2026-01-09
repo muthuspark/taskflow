@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -61,6 +62,29 @@ func main() {
 	wsHub := api.NewWSHub(cfg.AllowedOrigins)
 	go wsHub.Run()
 
+	// Wire up executor to broadcast logs and status via WebSocket
+	exec.SetLogBroadcaster(func(runID string, stream string, content string, timestamp time.Time) {
+		wsHub.Broadcast(api.WSMessage{
+			Type:      "log",
+			RunID:     runID,
+			Timestamp: timestamp.Format(time.RFC3339),
+			Data: map[string]string{
+				"stream":  stream,
+				"content": content,
+			},
+		})
+	})
+	exec.SetStatusBroadcaster(func(runID string, status string) {
+		wsHub.Broadcast(api.WSMessage{
+			Type:      "status",
+			RunID:     runID,
+			Timestamp: time.Now().Format(time.RFC3339),
+			Data: map[string]string{
+				"status": status,
+			},
+		})
+	})
+
 	// Create HTTP router (pass wsHub and scheduler for job processing)
 	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins, sched)
 
@@ -105,12 +129,19 @@ func main() {
 
 	// Start scheduler
 	go func() {
-		jobHandler := func(job *store.Job) error {
-			// Create a new run
-			run, err := db.CreateRun(job.ID, "scheduled")
-			if err != nil {
-				log.Printf("Failed to create run: %v\n", err)
-				return err
+		jobHandler := func(job *store.Job, existingRun *store.Run) error {
+			var run *store.Run
+			var err error
+
+			// Use existing run if provided (manual triggers), otherwise create new one (scheduled)
+			if existingRun != nil {
+				run = existingRun
+			} else {
+				run, err = db.CreateRun(job.ID, "scheduled")
+				if err != nil {
+					log.Printf("Failed to create run: %v\n", err)
+					return err
+				}
 			}
 
 			// Execute the job
@@ -176,17 +207,13 @@ func isAPIPath(path string) bool {
 
 // isAssetPath checks if a path is likely an asset file
 func isAssetPath(path string) bool {
-	return path == "/" ||
-		path == "/index.html" ||
-		isFileExtension(path, ".js") ||
-		isFileExtension(path, ".css") ||
-		isFileExtension(path, ".png") ||
-		isFileExtension(path, ".svg") ||
-		isFileExtension(path, ".jpg") ||
-		isFileExtension(path, ".jpeg")
-}
-
-// isFileExtension checks if path has the given extension
-func isFileExtension(path string, ext string) bool {
-	return len(path) > len(ext) && path[len(path)-len(ext):] == ext
+	if path == "/" || path == "/index.html" {
+		return true
+	}
+	// Use filepath.Ext() for idiomatic extension checking with map lookup
+	validExts := map[string]bool{
+		".js": true, ".css": true, ".png": true,
+		".svg": true, ".jpg": true, ".jpeg": true,
+	}
+	return validExts[filepath.Ext(path)]
 }

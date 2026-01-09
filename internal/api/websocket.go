@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 
@@ -46,19 +47,14 @@ func isOriginAllowed(origin string, allowedOrigins string) bool {
 		return false
 	}
 
-	// Split allowed origins by comma
+	// Use slices.ContainsFunc for idiomatic slice searching (Go 1.21+)
 	allowed := strings.Split(allowedOrigins, ",")
-	for _, ao := range allowed {
-		ao = strings.TrimSpace(ao)
-		allowedURL, err := url.Parse(ao)
-		if err != nil {
-			continue
-		}
-		if originURL.Scheme == allowedURL.Scheme && originURL.Host == allowedURL.Host {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(allowed, func(ao string) bool {
+		allowedURL, err := url.Parse(strings.TrimSpace(ao))
+		return err == nil &&
+			originURL.Scheme == allowedURL.Scheme &&
+			originURL.Host == allowedURL.Host
+	})
 }
 
 // NewWSHub creates a new WebSocket hub with CORS validation

@@ -46,7 +46,7 @@ func (s *Store) GetRun(id string) (*Run, error) {
 		&startedAt, &finishedAt, &durationMs, &errorMsg,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("run not found")
 	}
 	if err != nil {

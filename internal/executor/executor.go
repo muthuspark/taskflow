@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -13,14 +14,32 @@ import (
 	"github.com/taskflow/taskflow/internal/store"
 )
 
+// LogBroadcaster is a callback function for broadcasting logs via WebSocket
+type LogBroadcaster func(runID string, stream string, content string, timestamp time.Time)
+
+// StatusBroadcaster is a callback function for broadcasting status changes via WebSocket
+type StatusBroadcaster func(runID string, status string)
+
 // Executor handles job execution
 type Executor struct {
-	store *store.Store
+	store             *store.Store
+	logBroadcaster    LogBroadcaster
+	statusBroadcaster StatusBroadcaster
 }
 
 // New creates a new executor
 func New(st *store.Store) *Executor {
 	return &Executor{store: st}
+}
+
+// SetLogBroadcaster sets the callback for broadcasting logs
+func (e *Executor) SetLogBroadcaster(broadcaster LogBroadcaster) {
+	e.logBroadcaster = broadcaster
+}
+
+// SetStatusBroadcaster sets the callback for broadcasting status changes
+func (e *Executor) SetStatusBroadcaster(broadcaster StatusBroadcaster) {
+	e.statusBroadcaster = broadcaster
 }
 
 // Execute runs a job and returns the run result
@@ -49,6 +68,10 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	if err := e.store.UpdateRun(run); err != nil {
 		log.Printf("Failed to update run status: %v\n", err)
 	}
+	// Broadcast status change via WebSocket
+	if e.statusBroadcaster != nil {
+		e.statusBroadcaster(run.ID, run.Status)
+	}
 
 	// Create timeout context
 	timeoutDuration := time.Duration(job.TimeoutSeconds) * time.Second
@@ -62,7 +85,7 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	// Set up pipes for stdout/stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		run.Status = "failure"
+		run.Status = internal.JobStatusFailure
 		msg := fmt.Sprintf("Failed to create stdout pipe: %v", err)
 		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
@@ -71,7 +94,7 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		run.Status = "failure"
+		run.Status = internal.JobStatusFailure
 		msg := fmt.Sprintf("Failed to create stderr pipe: %v", err)
 		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
@@ -80,7 +103,7 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
-		run.Status = "failure"
+		run.Status = internal.JobStatusFailure
 		msg := fmt.Sprintf("Failed to start command: %v", err)
 		run.ErrorMsg = &msg
 		e.store.UpdateRun(run)
@@ -108,11 +131,21 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	e.finalizeRun(run, job, err, execCtx)
 
 	// Log final status
-	e.store.AddLog(run.ID, internal.StreamSystem, fmt.Sprintf("Job %s with status: %s", run.ID, run.Status))
+	finalMsg := fmt.Sprintf("Job %s with status: %s", run.ID, run.Status)
+	e.store.AddLog(run.ID, internal.StreamSystem, finalMsg)
+	// Broadcast final log
+	if e.logBroadcaster != nil {
+		e.logBroadcaster(run.ID, internal.StreamSystem, finalMsg, time.Now())
+	}
 
 	// Update run in database
 	if err := e.store.UpdateRun(run); err != nil {
 		log.Printf("Failed to update run: %v\n", err)
+	}
+
+	// Broadcast final status change via WebSocket
+	if e.statusBroadcaster != nil {
+		e.statusBroadcaster(run.ID, run.Status)
 	}
 
 	return nil
@@ -130,8 +163,13 @@ func (e *Executor) streamLogs(runID string, pipe interface{}, stream string) {
 				lines := strings.Split(string(buf[:n]), "\n")
 				for _, line := range lines {
 					if line != "" {
+						timestamp := time.Now()
 						if _, err := e.store.AddLog(runID, stream, line); err != nil {
 							log.Printf("Failed to add log: %v\n", err)
+						}
+						// Broadcast log via WebSocket
+						if e.logBroadcaster != nil {
+							e.logBroadcaster(runID, stream, line, timestamp)
 						}
 					}
 				}
@@ -146,14 +184,13 @@ func (e *Executor) streamLogs(runID string, pipe interface{}, stream string) {
 // CanExecute checks if a job can be executed (respecting concurrency limits)
 func (e *Executor) CanExecute() bool {
 	// In Phase 1, we only allow one concurrent job
-	// Check if any runs are currently executing
 	runs, err := e.store.ListRuns(nil, 1, 0)
 	if err != nil || len(runs) == 0 {
 		return true
 	}
 
-	run := runs[0]
-	return run.Status != "running" && run.Status != "pending"
+	status := runs[0].Status
+	return status != internal.JobStatusRunning && status != internal.JobStatusPending
 }
 
 // GetRunningJob returns the currently running job, if any
@@ -163,9 +200,8 @@ func (e *Executor) GetRunningJob() *store.Run {
 		return nil
 	}
 
-	run := runs[0]
-	if run.Status == "running" {
-		return run
+	if runs[0].Status == internal.JobStatusRunning {
+		return runs[0]
 	}
 	return nil
 }
@@ -179,7 +215,7 @@ func (e *Executor) finalizeRun(run *store.Run, job *store.Job, cmdErr error, exe
 	run.DurationMs = &duration
 
 	if cmdErr != nil {
-		if execCtx.Err() == context.DeadlineExceeded {
+		if errors.Is(execCtx.Err(), context.DeadlineExceeded) {
 			run.Status = internal.JobStatusTimeout
 			msg := fmt.Sprintf("Job exceeded timeout of %d seconds", job.TimeoutSeconds)
 			run.ErrorMsg = &msg
@@ -190,7 +226,8 @@ func (e *Executor) finalizeRun(run *store.Run, job *store.Job, cmdErr error, exe
 			msg := cmdErr.Error()
 			run.ErrorMsg = &msg
 			// Try to extract exit code from command execution error
-			if exitErr, ok := cmdErr.(*exec.ExitError); ok {
+			var exitErr *exec.ExitError
+			if errors.As(cmdErr, &exitErr) {
 				code := exitErr.ExitCode()
 				run.ExitCode = &code
 			}
