@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Complete frontend UI redesign from lo-fi monochrome to W3Techs-inspired style
+  - Replaced ultra-minimal black/white Tailwind design with cleaner traditional interface
+  - New color palette using soft blues (#bcd4ec, #99c2e5) for improved visual hierarchy
+  - Switched from Source Code Pro monospace to Verdana font family (13px base)
+  - Simplified navigation with centered links, gradient top border, and featured banner
+  - Tables now use alternating row colors and blue header backgrounds
+  - Status badges display color-coded backgrounds (green/red/yellow) for clear status
+  - Cards and boxes feature light blue headers with gray borders
+  - Removed Tailwind CSS in favor of vanilla CSS for smaller bundle size
+- Updated StatusBadge component with simplified class mappings for new design system
+- All view components (Dashboard, Jobs, Runs, JobCreate, JobDetail, RunDetail, Login) adapted for new design
+
 ### Added
 - Service-style daemon commands for production deployments:
   - `./taskflow` - Start in foreground (useful for Docker/debugging)
