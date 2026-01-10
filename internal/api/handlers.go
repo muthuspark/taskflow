@@ -596,3 +596,93 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"status":"ok"}`)
 }
+
+// AnalyticsHandlers handles analytics endpoints
+type AnalyticsHandlers struct {
+	store *store.Store
+}
+
+// NewAnalyticsHandlers creates analytics handlers
+func NewAnalyticsHandlers(st *store.Store) *AnalyticsHandlers {
+	return &AnalyticsHandlers{store: st}
+}
+
+// GetExecutionTrends handles GET /api/analytics/execution-trends
+func (h *AnalyticsHandlers) GetExecutionTrends(w http.ResponseWriter, r *http.Request) {
+	daysStr := r.URL.Query().Get("days")
+	days := 30 // default
+	if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= 365 {
+		days = d
+	}
+
+	trends, err := h.store.GetExecutionTrends(days)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get execution trends", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"trends": trends,
+		"days":   days,
+	})
+}
+
+// GetJobStats handles GET /api/analytics/job-stats
+func (h *AnalyticsHandlers) GetJobStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.store.GetJobStats()
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get job stats", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"jobs":  stats,
+		"total": len(stats),
+	})
+}
+
+// GetJobDurationTrends handles GET /api/analytics/jobs/{id}/duration-trends
+func (h *AnalyticsHandlers) GetJobDurationTrends(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+	if jobID == "" {
+		WriteError(w, http.StatusBadRequest, "Job ID is required", "INVALID_ID")
+		return
+	}
+
+	daysStr := r.URL.Query().Get("days")
+	days := 30 // default
+	if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= 365 {
+		days = d
+	}
+
+	trends, err := h.store.GetJobDurationTrends(jobID, days)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get duration trends", "INTERNAL_ERROR")
+		return
+	}
+
+	// Get job name
+	job, _ := h.store.GetJob(jobID)
+	jobName := ""
+	if job != nil {
+		jobName = job.Name
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"job_id":   jobID,
+		"job_name": jobName,
+		"trends":   trends,
+		"days":     days,
+	})
+}
+
+// GetOverallStats handles GET /api/analytics/overview
+func (h *AnalyticsHandlers) GetOverallStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.store.GetOverallStats()
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get overall stats", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, stats)
+}

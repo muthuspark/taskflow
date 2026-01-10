@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Analytics dashboard with execution trends and job duration analysis
+  - New `/analytics` page accessible from main navigation
+  - Overview stats: total runs, success rate, runs in last 24h, average duration
+  - Execution trends chart with toggle between success rate and run counts view
+  - Configurable time range (7, 14, 30, 90 days)
+  - Job statistics table showing per-job performance metrics (success rate, avg/min/max duration)
+  - Job duration trends chart for analyzing individual job performance over time
+  - Color-coded success rates (green >90%, yellow >70%, red <70%)
+- Backend analytics API endpoints:
+  - `GET /api/analytics/overview` - overall system statistics
+  - `GET /api/analytics/execution-trends` - daily success/failure/timeout counts
+  - `GET /api/analytics/job-stats` - per-job performance statistics
+  - `GET /api/analytics/jobs/{id}/duration-trends` - duration trends for specific job
+- Chart.js integration for data visualization (Line charts with vue-chartjs)
+
+### Removed
+- CPU/Memory metrics collection feature (removed due to unreliable child process tracking)
+  - Removed MetricsGauge and MetricsPanel components
+  - Removed metrics.go from executor package
+  - Removed gopsutil dependency
+  - Note: metrics database schema retained for potential future use
+
 - GitHub Actions workflow for automated releases (`.github/workflows/release.yml`)
   - Triggers on semantic version tags (v*.*.*)
   - Cross-compiles binaries for Linux, macOS, and Windows (AMD64 + ARM64)

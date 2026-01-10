@@ -51,6 +51,7 @@ function isActive(path) {
             <router-link to="/" :class="{ active: isActive('/') && route.path === '/' }">Home</router-link>
             <router-link to="/jobs" :class="{ active: isActive('/jobs') }">Jobs</router-link>
             <router-link to="/runs" :class="{ active: isActive('/runs') }">Runs</router-link>
+            <router-link to="/analytics" :class="{ active: isActive('/analytics') }">Analytics</router-link>
             <router-link to="/jobs/new" :class="{ active: route.path === '/jobs/new' }">Create Job</router-link>
             <span style="color: #999;">|</span>
             <span style="font-size: 11px; color: #666;">

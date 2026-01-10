@@ -124,6 +124,7 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 
 	// Wait for command to complete or timeout
 	err = cmd.Wait()
+
 	// Ensure all logs are fully written before proceeding
 	wg.Wait()
 

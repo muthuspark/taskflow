@@ -19,6 +19,7 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	runHandlers := NewRunHandlers(st)
 	scheduleHandlers := NewScheduleHandlers(st)
 	dashboardHandlers := NewDashboardHandlers(st)
+	analyticsHandlers := NewAnalyticsHandlers(st)
 
 	// Middleware
 	authMw := AuthMiddleware(jwtManager, st)
@@ -63,6 +64,12 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 
 	// Dashboard endpoints
 	mux.Handle("GET "+apiBasePath+"/dashboard/stats", authMw(http.HandlerFunc(dashboardHandlers.GetStats)))
+
+	// Analytics endpoints
+	mux.Handle("GET "+apiBasePath+"/analytics/overview", authMw(http.HandlerFunc(analyticsHandlers.GetOverallStats)))
+	mux.Handle("GET "+apiBasePath+"/analytics/execution-trends", authMw(http.HandlerFunc(analyticsHandlers.GetExecutionTrends)))
+	mux.Handle("GET "+apiBasePath+"/analytics/job-stats", authMw(http.HandlerFunc(analyticsHandlers.GetJobStats)))
+	mux.Handle("GET "+apiBasePath+"/analytics/jobs/{id}/duration-trends", authMw(http.HandlerFunc(analyticsHandlers.GetJobDurationTrends)))
 
 	// WebSocket endpoints (no auth middleware applied here - handler manages auth internally)
 	mux.HandleFunc("GET "+apiBasePath+"/ws/logs", wsHub.HandleLogsWebSocket)

@@ -5,6 +5,7 @@ import JobCreateView from '../views/JobCreateView.vue'
 import JobDetailView from '../views/JobDetailView.vue'
 import RunsView from '../views/RunsView.vue'
 import RunDetailView from '../views/RunDetailView.vue'
+import AnalyticsView from '../views/AnalyticsView.vue'
 
 const routes = [
   {
@@ -41,6 +42,12 @@ const routes = [
     path: '/runs/:id',
     name: 'run-detail',
     component: RunDetailView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/analytics',
+    name: 'analytics',
+    component: AnalyticsView,
     meta: { requiresAuth: true }
   }
 ]
