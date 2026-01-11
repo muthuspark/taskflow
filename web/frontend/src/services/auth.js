@@ -92,6 +92,25 @@ const authService = {
       new_password: newPassword
     })
     return response.data.data
+  },
+
+  /**
+   * Get SMTP settings (admin only)
+   * @returns {Promise<{server: string, port: number, username: string, password: string, from_name: string, from_email: string}>}
+   */
+  async getSMTPSettings() {
+    const response = await api.get(`${API_BASE_PATH}/settings/smtp`)
+    return response.data.data
+  },
+
+  /**
+   * Update SMTP settings (admin only)
+   * @param {object} settings
+   * @returns {Promise<{message: string}>}
+   */
+  async updateSMTPSettings(settings) {
+    const response = await api.put(`${API_BASE_PATH}/settings/smtp`, settings)
+    return response.data.data
   }
 }
 

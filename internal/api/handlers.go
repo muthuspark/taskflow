@@ -203,6 +203,92 @@ func (h *AuthHandlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetSMTPSettings handles GET /api/settings/smtp
+func (h *AuthHandlers) GetSMTPSettings(w http.ResponseWriter, r *http.Request) {
+	// Check if user is admin
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		WriteError(w, http.StatusForbidden, "Admin access required", "FORBIDDEN")
+		return
+	}
+
+	settings, err := h.store.GetSMTPSettings()
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get SMTP settings", "INTERNAL_ERROR")
+		return
+	}
+
+	// Mask password for security
+	maskedSettings := map[string]interface{}{
+		"server":     settings.Server,
+		"port":       settings.Port,
+		"username":   settings.Username,
+		"password":   maskPassword(settings.Password),
+		"from_name":  settings.FromName,
+		"from_email": settings.FromEmail,
+	}
+
+	WriteJSON(w, http.StatusOK, maskedSettings)
+}
+
+// UpdateSMTPSettings handles PUT /api/settings/smtp
+func (h *AuthHandlers) UpdateSMTPSettings(w http.ResponseWriter, r *http.Request) {
+	// Check if user is admin
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		WriteError(w, http.StatusForbidden, "Admin access required", "FORBIDDEN")
+		return
+	}
+
+	var req struct {
+		Server    string `json:"server"`
+		Port      int    `json:"port"`
+		Username  string `json:"username"`
+		Password  string `json:"password"`
+		FromName  string `json:"from_name"`
+		FromEmail string `json:"from_email"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
+		return
+	}
+
+	// If password is masked (unchanged), get the existing password
+	if req.Password == "********" || req.Password == "" {
+		existingSettings, err := h.store.GetSMTPSettings()
+		if err == nil && existingSettings != nil {
+			req.Password = existingSettings.Password
+		}
+	}
+
+	settings := &store.SMTPSettings{
+		Server:    req.Server,
+		Port:      req.Port,
+		Username:  req.Username,
+		Password:  req.Password,
+		FromName:  req.FromName,
+		FromEmail: req.FromEmail,
+	}
+
+	if err := h.store.SetSMTPSettings(settings); err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to save SMTP settings", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "SMTP settings updated successfully",
+	})
+}
+
+// maskPassword masks a password for display
+func maskPassword(password string) string {
+	if password == "" {
+		return ""
+	}
+	return "********"
+}
+
 // JobHandlers handles job endpoints
 type JobHandlers struct {
 	store     *store.Store

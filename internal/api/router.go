@@ -74,6 +74,10 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	mux.Handle("GET "+apiBasePath+"/analytics/job-stats", authMw(http.HandlerFunc(analyticsHandlers.GetJobStats)))
 	mux.Handle("GET "+apiBasePath+"/analytics/jobs/{id}/duration-trends", authMw(http.HandlerFunc(analyticsHandlers.GetJobDurationTrends)))
 
+	// Settings endpoints (admin only)
+	mux.Handle("GET "+apiBasePath+"/settings/smtp", authMw(http.HandlerFunc(authHandlers.GetSMTPSettings)))
+	mux.Handle("PUT "+apiBasePath+"/settings/smtp", bodyLimitMw(authMw(http.HandlerFunc(authHandlers.UpdateSMTPSettings))))
+
 	// WebSocket endpoints (no auth middleware applied here - handler manages auth internally)
 	mux.HandleFunc("GET "+apiBasePath+"/ws/logs", wsHub.HandleLogsWebSocket)
 

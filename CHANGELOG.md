@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-01-11
+
+### Added
+- SMTP configuration in admin settings
+  - New "SMTP Configuration" section in Account Settings page (admin only)
+  - Configure SMTP server, port, username, password, from name, and from email
+  - Settings stored in database, overriding environment variables
+  - Password masked in UI for security
+  - `GET /api/settings/smtp` endpoint to retrieve settings
+  - `PUT /api/settings/smtp` endpoint to update settings
+  - New `internal/store/settings.go` with generic key-value store methods
+
 ## [0.5.0] - 2026-01-11
 
 ### Added
