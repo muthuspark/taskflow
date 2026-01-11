@@ -78,8 +78,8 @@ async function changePassword() {
     newPassword.value = ''
     confirmPassword.value = ''
   } catch (err) {
-    if (err.response?.data?.error?.message) {
-      passwordError.value = err.response.data.error.message
+    if (err.response?.data?.error) {
+      passwordError.value = err.response.data.error
     } else {
       passwordError.value = 'Failed to change password'
     }
@@ -105,8 +105,8 @@ async function saveSMTPSettings() {
     })
     smtpSuccess.value = 'SMTP settings saved successfully'
   } catch (err) {
-    if (err.response?.data?.error?.message) {
-      smtpError.value = err.response.data.error.message
+    if (err.response?.data?.error) {
+      smtpError.value = err.response.data.error
     } else {
       smtpError.value = 'Failed to save SMTP settings'
     }
