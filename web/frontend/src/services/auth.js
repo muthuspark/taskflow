@@ -78,6 +78,20 @@ const authService = {
    */
   isAuthenticated() {
     return !!localStorage.getItem('token')
+  },
+
+  /**
+   * Change password for the current user
+   * @param {string} currentPassword
+   * @param {string} newPassword
+   * @returns {Promise<{message: string}>}
+   */
+  async changePassword(currentPassword, newPassword) {
+    const response = await api.put(`${API_BASE_PATH}/auth/password`, {
+      current_password: currentPassword,
+      new_password: newPassword
+    })
+    return response.data.data
   }
 }
 

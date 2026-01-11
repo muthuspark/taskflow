@@ -54,10 +54,10 @@ function isActive(path) {
             <router-link to="/analytics" :class="{ active: isActive('/analytics') }">Analytics</router-link>
             <router-link to="/jobs/new" :class="{ active: route.path === '/jobs/new' }">Create Job</router-link>
             <span style="color: #999;">|</span>
-            <span style="font-size: 11px; color: #666;">
+            <router-link to="/account" class="user-link">
               {{ currentUser?.username }}
-              <span v-if="currentUser?.role === 'admin'" style="color: #0066cc;">(admin)</span>
-            </span>
+              <span v-if="currentUser?.role === 'admin'" class="admin-badge">(admin)</span>
+            </router-link>
             <a href="#" @click.prevent="logout">Logout</a>
           </nav>
         </div>
@@ -77,5 +77,17 @@ function isActive(path) {
 </template>
 
 <style scoped>
-/* No scoped styles needed - using global CSS */
+.user-link {
+  font-size: 11px;
+  color: #666 !important;
+  text-decoration: none !important;
+}
+
+.user-link:hover {
+  text-decoration: underline !important;
+}
+
+.admin-badge {
+  color: #0066cc;
+}
 </style>

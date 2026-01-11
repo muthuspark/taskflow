@@ -44,6 +44,9 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	// Auth endpoints (no auth required for login)
 	mux.Handle("POST "+apiBasePath+"/auth/login", bodyLimitMw(http.HandlerFunc(authHandlers.Login)))
 
+	// Auth endpoints (requires auth)
+	mux.Handle("PUT "+apiBasePath+"/auth/password", bodyLimitMw(authMw(http.HandlerFunc(authHandlers.ChangePassword))))
+
 	// Protected endpoints - wrap with auth middleware
 	// Jobs endpoints
 	mux.Handle("GET "+apiBasePath+"/jobs", authMw(http.HandlerFunc(jobHandlers.ListJobs)))

@@ -177,3 +177,25 @@ func (s *Store) UserCount() (int, error) {
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)
 	return count, err
 }
+
+// UpdateUserPassword updates the password hash for a user
+func (s *Store) UpdateUserPassword(id int, passwordHash string) error {
+	result, err := s.db.Exec(
+		`UPDATE users SET password_hash = ? WHERE id = ?`,
+		passwordHash, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
+}

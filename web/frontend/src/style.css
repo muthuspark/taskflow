@@ -695,6 +695,15 @@ textarea {
   color: #666666;
 }
 
+/* Print Styles */
+@media print {
+  .top-border,
+  .app-header,
+  .featured-banner {
+    display: none !important;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .main-container {

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-11
+
+### Added
+- Full-page log view for printing
+  - New `/runs/:id/logs` route opens logs in a dedicated print-friendly page
+  - "Open Logs in New Tab" button in run detail header
+  - "Full Page Logs" button in run detail sidebar
+  - Print button triggers browser print dialog
+  - Print-optimized CSS hides UI chrome (header, navigation, footer) when printing
+- Account settings page with password change
+  - Click username in navigation header to access `/account` page
+  - Displays account information (username, email, role)
+  - Password change form with current password verification
+  - Minimum 6 character validation for new passwords
+- Backend password change API
+  - `PUT /api/auth/password` endpoint (authenticated)
+  - Verifies current password before allowing change
+  - Uses bcrypt for secure password hashing
+
 ## [Unreleased]
 
 ### Added

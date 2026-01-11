@@ -117,6 +117,11 @@ function goToJob() {
     router.push(`/jobs/${run.value.job_id}`)
   }
 }
+
+function openLogsInNewTab() {
+  const url = router.resolve(`/runs/${route.params.id}/logs`).href
+  window.open(url, '_blank')
+}
 </script>
 
 <template>
@@ -145,6 +150,7 @@ function goToJob() {
           </div>
           <div class="header-actions">
             <button @click="goToJob" class="btn">View Job</button>
+            <button @click="openLogsInNewTab" class="btn">Open Logs in New Tab</button>
             <button @click="refreshLogs" class="btn" :disabled="loading">Refresh</button>
           </div>
         </div>
@@ -247,6 +253,9 @@ function goToJob() {
           </p>
           <p class="mb-10">
             <button @click="refreshLogs" class="btn" style="width: 100%;" :disabled="loading">Refresh Logs</button>
+          </p>
+          <p class="mb-10">
+            <button @click="openLogsInNewTab" class="btn" style="width: 100%;">Full Page Logs</button>
           </p>
           <p class="mb-0">
             <router-link to="/runs" class="btn" style="width: 100%; text-align: center;">All Runs</router-link>

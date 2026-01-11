@@ -5,7 +5,9 @@ import JobCreateView from '../views/JobCreateView.vue'
 import JobDetailView from '../views/JobDetailView.vue'
 import RunsView from '../views/RunsView.vue'
 import RunDetailView from '../views/RunDetailView.vue'
+import RunLogsPrintView from '../views/RunLogsPrintView.vue'
 import AnalyticsView from '../views/AnalyticsView.vue'
+import AccountView from '../views/AccountView.vue'
 
 const routes = [
   {
@@ -45,9 +47,21 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/runs/:id/logs',
+    name: 'run-logs-print',
+    component: RunLogsPrintView,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/analytics',
     name: 'analytics',
     component: AnalyticsView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/account',
+    name: 'account',
+    component: AccountView,
     meta: { requiresAuth: true }
   }
 ]

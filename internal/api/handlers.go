@@ -142,6 +142,67 @@ func (h *AuthHandlers) CreateFirstAdmin(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// ChangePassword handles PUT /api/auth/password
+func (h *AuthHandlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid user ID", "INVALID_ID")
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
+		return
+	}
+
+	// Validate input
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		WriteError(w, http.StatusBadRequest, "Current password and new password are required", "VALIDATION_ERROR")
+		return
+	}
+
+	if len(req.NewPassword) < 6 {
+		WriteError(w, http.StatusBadRequest, "New password must be at least 6 characters", "VALIDATION_ERROR")
+		return
+	}
+
+	// Get current user
+	user, err := h.store.GetUser(userID)
+	if err != nil {
+		WriteError(w, http.StatusNotFound, "User not found", "NOT_FOUND")
+		return
+	}
+
+	// Verify current password
+	if !auth.VerifyPassword(user.PasswordHash, req.CurrentPassword) {
+		WriteError(w, http.StatusUnauthorized, "Current password is incorrect", "INVALID_CREDENTIALS")
+		return
+	}
+
+	// Hash new password
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to hash password", "INTERNAL_ERROR")
+		return
+	}
+
+	// Update password
+	if err := h.store.UpdateUserPassword(userID, hash); err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to update password", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Password updated successfully",
+	})
+}
+
 // JobHandlers handles job endpoints
 type JobHandlers struct {
 	store     *store.Store
