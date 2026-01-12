@@ -64,11 +64,13 @@ This is an automated test from TaskFlow.
 // SendJobNotification sends email notification for a completed job run
 func (n *Notifier) SendJobNotification(job *store.Job, run *store.Run) error {
 	if !shouldNotify(job.NotifyOn, run.Status) {
+		log.Printf("Notification skipped for job %s: notify_on=%q doesn't match status=%q", job.ID, job.NotifyOn, run.Status)
 		return nil
 	}
 
 	emails := parseEmails(job.NotifyEmails)
 	if len(emails) == 0 {
+		log.Printf("Notification skipped for job %s: no email recipients configured", job.ID)
 		return nil
 	}
 
@@ -83,7 +85,12 @@ func (n *Notifier) SendJobNotification(job *store.Job, run *store.Run) error {
 	}
 
 	subject, body := buildEmailContent(job, run)
-	return sendEmail(settings, emails, subject, body)
+	if err := sendEmail(settings, emails, subject, body); err != nil {
+		return err
+	}
+
+	log.Printf("Notification sent for job %s (status=%s) to %v", job.ID, run.Status, emails)
+	return nil
 }
 
 // shouldNotify determines if a notification should be sent
