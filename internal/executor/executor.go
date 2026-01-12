@@ -20,11 +20,15 @@ type LogBroadcaster func(runID string, stream string, content string, timestamp 
 // StatusBroadcaster is a callback function for broadcasting status changes via WebSocket
 type StatusBroadcaster func(runID string, status string)
 
+// NotificationSender is a callback function for sending notifications on job completion
+type NotificationSender func(job *store.Job, run *store.Run)
+
 // Executor handles job execution
 type Executor struct {
-	store             *store.Store
-	logBroadcaster    LogBroadcaster
-	statusBroadcaster StatusBroadcaster
+	store              *store.Store
+	logBroadcaster     LogBroadcaster
+	statusBroadcaster  StatusBroadcaster
+	notificationSender NotificationSender
 }
 
 // New creates a new executor
@@ -40,6 +44,11 @@ func (e *Executor) SetLogBroadcaster(broadcaster LogBroadcaster) {
 // SetStatusBroadcaster sets the callback for broadcasting status changes
 func (e *Executor) SetStatusBroadcaster(broadcaster StatusBroadcaster) {
 	e.statusBroadcaster = broadcaster
+}
+
+// SetNotificationSender sets the callback for sending notifications
+func (e *Executor) SetNotificationSender(sender NotificationSender) {
+	e.notificationSender = sender
 }
 
 // Execute runs a job and returns the run result
@@ -147,6 +156,11 @@ func (e *Executor) Execute(ctx context.Context, run *store.Run, job *store.Job) 
 	// Broadcast final status change via WebSocket
 	if e.statusBroadcaster != nil {
 		e.statusBroadcaster(run.ID, run.Status)
+	}
+
+	// Send notification if configured
+	if e.notificationSender != nil {
+		e.notificationSender(job, run)
 	}
 
 	return nil

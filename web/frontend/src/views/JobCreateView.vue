@@ -16,6 +16,8 @@ const retryCount = ref(0)
 const retryDelay = ref(60)
 const enabled = ref(true)
 const timezone = ref('UTC')
+const notifyEmails = ref('')
+const notifyOn = ref('failure')
 
 // Schedule state
 const scheduleMinutes = ref([0])
@@ -159,6 +161,8 @@ async function handleSubmit() {
       retry_delay_seconds: parseInt(retryDelay.value),
       enabled: enabled.value,
       timezone: timezone.value,
+      notify_emails: notifyEmails.value.trim(),
+      notify_on: notifyOn.value,
       schedule: {
         minutes: scheduleMinutes.value.length ? scheduleMinutes.value : null,
         hours: scheduleHours.value.length ? scheduleHours.value : null,
@@ -327,6 +331,36 @@ const timezones = [
                 />
                 <div v-if="errors.retryDelay" class="field-error">{{ errors.retryDelay }}</div>
                 <div class="field-hint">Delay between retries</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="card">
+          <div class="card-header">Notifications</div>
+          <div class="card-body">
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="notifyEmails">Email Recipients</label>
+                <input
+                  id="notifyEmails"
+                  v-model="notifyEmails"
+                  type="text"
+                  placeholder="email1@example.com, email2@example.com"
+                  :disabled="loading"
+                />
+                <div class="field-hint">Comma-separated list of email addresses</div>
+              </div>
+
+              <div class="form-group">
+                <label for="notifyOn">Notify On</label>
+                <select id="notifyOn" v-model="notifyOn" :disabled="loading">
+                  <option value="failure">Failure Only</option>
+                  <option value="success">Success Only</option>
+                  <option value="always">Always</option>
+                </select>
+                <div class="field-hint">When to send email notifications</div>
               </div>
             </div>
           </div>

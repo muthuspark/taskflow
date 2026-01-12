@@ -20,6 +20,7 @@ import (
 	"github.com/taskflow/taskflow/internal/auth"
 	"github.com/taskflow/taskflow/internal/config"
 	"github.com/taskflow/taskflow/internal/executor"
+	"github.com/taskflow/taskflow/internal/notification"
 	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
 )
@@ -130,6 +131,17 @@ func main() {
 				"status": status,
 			},
 		})
+	})
+
+	// Set up email notification sender
+	notifier := notification.New(db)
+	exec.SetNotificationSender(func(job *store.Job, run *store.Run) {
+		// Send notification asynchronously to not block job execution
+		go func() {
+			if err := notifier.SendJobNotification(job, run); err != nil {
+				log.Printf("Failed to send notification for job %s: %v", job.ID, err)
+			}
+		}()
 	})
 
 	// Create HTTP router (pass wsHub and scheduler for job processing)

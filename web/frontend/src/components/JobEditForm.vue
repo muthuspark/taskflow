@@ -23,6 +23,8 @@ const retryCount = ref(0)
 const retryDelay = ref(60)
 const enabled = ref(true)
 const timezone = ref('UTC')
+const notifyEmails = ref('')
+const notifyOn = ref('failure')
 
 const loading = ref(false)
 const error = ref('')
@@ -39,6 +41,8 @@ onMounted(() => {
   retryDelay.value = props.job.retry_delay_seconds || 60
   enabled.value = props.job.enabled !== false
   timezone.value = props.job.timezone || 'UTC'
+  notifyEmails.value = props.job.notify_emails || ''
+  notifyOn.value = props.job.notify_on || 'failure'
 })
 
 // Validation
@@ -86,7 +90,9 @@ async function handleSubmit() {
       retry_count: parseInt(retryCount.value),
       retry_delay_seconds: parseInt(retryDelay.value),
       enabled: enabled.value,
-      timezone: timezone.value
+      timezone: timezone.value,
+      notify_emails: notifyEmails.value.trim(),
+      notify_on: notifyOn.value
     })
     emit('save')
   } catch (e) {
@@ -227,6 +233,29 @@ const timezones = [
               :disabled="loading"
             />
             <span v-if="errors.retryDelay" class="field-error">{{ errors.retryDelay }}</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-notifyEmails">Email Notifications</label>
+          <input
+            id="edit-notifyEmails"
+            v-model="notifyEmails"
+            type="text"
+            placeholder="email1@example.com, email2@example.com"
+            :disabled="loading"
+          />
+          <span class="field-hint">Comma-separated list of email addresses</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-notifyOn">Notify On</label>
+            <select id="edit-notifyOn" v-model="notifyOn" :disabled="loading">
+              <option value="failure">Failure Only</option>
+              <option value="success">Success Only</option>
+              <option value="always">Always</option>
+            </select>
           </div>
         </div>
 
