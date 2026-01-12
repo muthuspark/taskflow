@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Email notifications on job completion
+  - Sends emails when jobs succeed, fail, or timeout based on job settings
+  - Configure recipients and trigger conditions per job (always/success/failure)
+  - Supports SMTP with TLS (port 465) and STARTTLS (ports 25, 587)
+  - Notification fields added to job create and edit forms
+
 ## [0.6.1] - 2026-01-11
 
 ### Fixed
@@ -41,8 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PUT /api/auth/password` endpoint (authenticated)
   - Verifies current password before allowing change
   - Uses bcrypt for secure password hashing
-
-## [Unreleased]
 
 ### Added
 - Analytics dashboard with execution trends and job duration analysis
