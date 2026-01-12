@@ -41,6 +41,13 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  function updateEmail(newEmail) {
+    if (user.value) {
+      user.value = { ...user.value, email: newEmail }
+      localStorage.setItem('user', JSON.stringify(user.value))
+    }
+  }
+
   // Initialize from localStorage on store creation
   function initialize() {
     user.value = authService.getCurrentUser()
@@ -56,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     setupAdmin,
     logout,
+    updateEmail,
     initialize
   }
 })

@@ -178,6 +178,28 @@ func (s *Store) UserCount() (int, error) {
 	return count, err
 }
 
+// UpdateUserEmail updates the email for a user
+func (s *Store) UpdateUserEmail(id int, email string) error {
+	result, err := s.db.Exec(
+		`UPDATE users SET email = ? WHERE id = ?`,
+		email, id,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update email: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	if rows == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
+}
+
 // UpdateUserPassword updates the password hash for a user
 func (s *Store) UpdateUserPassword(id int, passwordHash string) error {
 	result, err := s.db.Exec(
