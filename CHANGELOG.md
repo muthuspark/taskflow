@@ -7,12 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-12
+
 ### Added
 - Email notifications on job completion
   - Sends emails when jobs succeed, fail, or timeout based on job settings
   - Configure recipients and trigger conditions per job (always/success/failure)
   - Supports SMTP with TLS (port 465) and STARTTLS (ports 25, 587)
   - Notification fields added to job create and edit forms
+  - Debug logging for notification delivery troubleshooting
+- Test SMTP settings button in Account Settings
+  - Sends test email to admin's email address to verify SMTP configuration
+  - `POST /api/settings/smtp/test` endpoint
+- User email update functionality
+  - Edit email address in Account Settings page
+  - `PUT /api/auth/email` endpoint
+
+### Improved
+- Added logging documentation to README
+  - Application logs (stdout/stderr, debug mode, systemd)
+  - Job execution logs (database storage, web UI viewing)
 
 ## [0.6.1] - 2026-01-11
 
