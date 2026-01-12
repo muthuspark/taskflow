@@ -9,6 +9,7 @@ import (
 
 	internal "github.com/taskflow/taskflow/internal"
 	"github.com/taskflow/taskflow/internal/auth"
+	"github.com/taskflow/taskflow/internal/notification"
 	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
 )
@@ -203,6 +204,68 @@ func (h *AuthHandlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ChangeEmail handles PUT /api/auth/email
+func (h *AuthHandlers) ChangeEmail(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid user ID", "INVALID_ID")
+		return
+	}
+
+	var emailUpdate struct {
+		Email string `json:"email"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&emailUpdate); err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid request body", "VALIDATION_ERROR")
+		return
+	}
+
+	if validationErr := validateEmail(emailUpdate.Email); validationErr != "" {
+		WriteError(w, http.StatusBadRequest, validationErr, "VALIDATION_ERROR")
+		return
+	}
+
+	if err := h.store.UpdateUserEmail(userID, emailUpdate.Email); err != nil {
+		if err.Error() == "user not found" {
+			WriteError(w, http.StatusNotFound, "User not found", "NOT_FOUND")
+			return
+		}
+		WriteError(w, http.StatusInternalServerError, "Failed to update email", "INTERNAL_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Email updated successfully",
+		"email":   emailUpdate.Email,
+	})
+}
+
+// validateEmail checks if the email is valid and returns an error message if not
+func validateEmail(email string) string {
+	if email == "" {
+		return "Email is required"
+	}
+	if len(email) > 254 {
+		return "Email is too long"
+	}
+	// Basic email format validation
+	atIndex := -1
+	for i, c := range email {
+		if c == '@' {
+			if atIndex != -1 {
+				return "Invalid email format"
+			}
+			atIndex = i
+		}
+	}
+	if atIndex < 1 || atIndex >= len(email)-1 {
+		return "Invalid email format"
+	}
+	return ""
+}
+
 // GetSMTPSettings handles GET /api/settings/smtp
 func (h *AuthHandlers) GetSMTPSettings(w http.ResponseWriter, r *http.Request) {
 	// Check if user is admin
@@ -278,6 +341,47 @@ func (h *AuthHandlers) UpdateSMTPSettings(w http.ResponseWriter, r *http.Request
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "SMTP settings updated successfully",
+	})
+}
+
+// TestSMTPSettings handles POST /api/settings/smtp/test
+func (h *AuthHandlers) TestSMTPSettings(w http.ResponseWriter, r *http.Request) {
+	// Check if user is admin
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		WriteError(w, http.StatusForbidden, "Admin access required", "FORBIDDEN")
+		return
+	}
+
+	// Get user's email to send test to
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, "Invalid user ID", "VALIDATION_ERROR")
+		return
+	}
+
+	user, err := h.store.GetUser(userID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to get user info", "INTERNAL_ERROR")
+		return
+	}
+
+	if user.Email == "" {
+		WriteError(w, http.StatusBadRequest, "Your account has no email address configured", "VALIDATION_ERROR")
+		return
+	}
+
+	// Send test email
+	notifier := notification.New(h.store)
+	if err := notifier.SendTestEmail(user.Email); err != nil {
+		log.Printf("SMTP test failed: %v", err)
+		WriteError(w, http.StatusBadRequest, fmt.Sprintf("Failed to send test email: %v", err), "SMTP_ERROR")
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"message": fmt.Sprintf("Test email sent successfully to %s", user.Email),
 	})
 }
 

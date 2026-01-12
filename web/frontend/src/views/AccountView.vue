@@ -10,6 +10,18 @@ const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user)
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
 
+// Helper to extract error message from API response
+function getErrorMessage(err, fallback) {
+  return err.response?.data?.error || fallback
+}
+
+// Email form state
+const isEditingEmail = ref(false)
+const editEmail = ref('')
+const emailLoading = ref(false)
+const emailError = ref('')
+const emailSuccess = ref('')
+
 // Password form state
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -26,6 +38,7 @@ const smtpPassword = ref('')
 const smtpFromName = ref('')
 const smtpFromEmail = ref('')
 const smtpLoading = ref(false)
+const smtpTestLoading = ref(false)
 const smtpError = ref('')
 const smtpSuccess = ref('')
 
@@ -34,6 +47,43 @@ onMounted(async () => {
     await loadSMTPSettings()
   }
 })
+
+function startEditEmail() {
+  editEmail.value = currentUser.value?.email || ''
+  isEditingEmail.value = true
+  emailError.value = ''
+  emailSuccess.value = ''
+}
+
+function cancelEditEmail() {
+  isEditingEmail.value = false
+  editEmail.value = ''
+  emailError.value = ''
+}
+
+async function updateEmail() {
+  emailError.value = ''
+  emailSuccess.value = ''
+
+  if (!editEmail.value) {
+    emailError.value = 'Email is required'
+    return
+  }
+
+  emailLoading.value = true
+
+  try {
+    const result = await authService.updateEmail(editEmail.value)
+    authStore.updateEmail(result.email)
+    emailSuccess.value = 'Email updated successfully'
+    isEditingEmail.value = false
+    editEmail.value = ''
+  } catch (err) {
+    emailError.value = getErrorMessage(err, 'Failed to update email')
+  } finally {
+    emailLoading.value = false
+  }
+}
 
 async function loadSMTPSettings() {
   try {
@@ -78,11 +128,7 @@ async function changePassword() {
     newPassword.value = ''
     confirmPassword.value = ''
   } catch (err) {
-    if (err.response?.data?.error) {
-      passwordError.value = err.response.data.error
-    } else {
-      passwordError.value = 'Failed to change password'
-    }
+    passwordError.value = getErrorMessage(err, 'Failed to change password')
   } finally {
     passwordLoading.value = false
   }
@@ -105,13 +151,25 @@ async function saveSMTPSettings() {
     })
     smtpSuccess.value = 'SMTP settings saved successfully'
   } catch (err) {
-    if (err.response?.data?.error) {
-      smtpError.value = err.response.data.error
-    } else {
-      smtpError.value = 'Failed to save SMTP settings'
-    }
+    smtpError.value = getErrorMessage(err, 'Failed to save SMTP settings')
   } finally {
     smtpLoading.value = false
+  }
+}
+
+async function testSMTPSettings() {
+  smtpError.value = ''
+  smtpSuccess.value = ''
+
+  smtpTestLoading.value = true
+
+  try {
+    const result = await authService.testSMTPSettings()
+    smtpSuccess.value = result.message
+  } catch (err) {
+    smtpError.value = getErrorMessage(err, 'Failed to send test email')
+  } finally {
+    smtpTestLoading.value = false
   }
 }
 </script>
@@ -133,6 +191,9 @@ async function saveSMTPSettings() {
       <div class="card">
         <div class="card-header">Account Information</div>
         <div class="card-body">
+          <div v-if="emailError" class="error-message">{{ emailError }}</div>
+          <div v-if="emailSuccess" class="success-message">{{ emailSuccess }}</div>
+
           <table class="details-table">
             <tbody>
               <tr>
@@ -141,7 +202,39 @@ async function saveSMTPSettings() {
               </tr>
               <tr>
                 <th>Email</th>
-                <td>{{ currentUser?.email || '-' }}</td>
+                <td>
+                  <template v-if="isEditingEmail">
+                    <div class="inline-edit">
+                      <input
+                        type="email"
+                        v-model="editEmail"
+                        :disabled="emailLoading"
+                        placeholder="Enter email address"
+                        class="inline-input"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-primary btn-small"
+                        @click="updateEmail"
+                        :disabled="emailLoading"
+                      >
+                        {{ emailLoading ? 'Saving...' : 'Save' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-small"
+                        @click="cancelEditEmail"
+                        :disabled="emailLoading"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    {{ currentUser?.email || '-' }}
+                    <button type="button" class="btn-link edit-link" @click="startEditEmail">Edit</button>
+                  </template>
+                </td>
               </tr>
               <tr>
                 <th>Role</th>
@@ -284,9 +377,14 @@ async function saveSMTPSettings() {
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" :disabled="smtpLoading">
-              {{ smtpLoading ? 'Saving...' : 'Save SMTP Settings' }}
-            </button>
+            <div class="button-group">
+              <button type="submit" class="btn btn-primary" :disabled="smtpLoading || smtpTestLoading">
+                {{ smtpLoading ? 'Saving...' : 'Save SMTP Settings' }}
+              </button>
+              <button type="button" class="btn" :disabled="smtpLoading || smtpTestLoading" @click="testSMTPSettings">
+                {{ smtpTestLoading ? 'Sending...' : 'Send Test Email' }}
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -345,6 +443,40 @@ async function saveSMTPSettings() {
   margin-bottom: 15px;
 }
 
+.inline-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-input {
+  flex: 1;
+  max-width: 250px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #0066cc;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: #004499;
+}
+
+.edit-link {
+  margin-left: 10px;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .form-row {
   display: flex;
   gap: 15px;
@@ -359,6 +491,11 @@ async function saveSMTPSettings() {
   flex-shrink: 0;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;
@@ -367,6 +504,10 @@ async function saveSMTPSettings() {
 
   .form-group-small {
     width: 100%;
+  }
+
+  .button-group {
+    flex-direction: column;
   }
 }
 </style>

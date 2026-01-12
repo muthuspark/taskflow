@@ -34,6 +34,33 @@ func New(provider SMTPSettingsProvider) *Notifier {
 	return &Notifier{settingsProvider: provider}
 }
 
+// SendTestEmail sends a test email to verify SMTP configuration
+func (n *Notifier) SendTestEmail(toEmail string) error {
+	settings, err := n.settingsProvider.GetSMTPSettings()
+	if err != nil {
+		return fmt.Errorf("failed to get SMTP settings: %w", err)
+	}
+
+	if !isConfigured(settings) {
+		return fmt.Errorf("SMTP is not configured")
+	}
+
+	subject := "[TaskFlow] Test Email - SMTP Configuration Working"
+	body := `TaskFlow SMTP Test
+==================
+
+This is a test email from TaskFlow.
+
+If you received this message, your SMTP settings are configured correctly
+and email notifications will work as expected.
+
+---
+This is an automated test from TaskFlow.
+`
+
+	return sendEmail(settings, []string{toEmail}, subject, body)
+}
+
 // SendJobNotification sends email notification for a completed job run
 func (n *Notifier) SendJobNotification(job *store.Job, run *store.Run) error {
 	if !shouldNotify(job.NotifyOn, run.Status) {

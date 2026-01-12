@@ -95,6 +95,16 @@ const authService = {
   },
 
   /**
+   * Update email for the current user
+   * @param {string} email
+   * @returns {Promise<{message: string, email: string}>}
+   */
+  async updateEmail(email) {
+    const response = await api.put(`${API_BASE_PATH}/auth/email`, { email })
+    return response.data.data
+  },
+
+  /**
    * Get SMTP settings (admin only)
    * @returns {Promise<{server: string, port: number, username: string, password: string, from_name: string, from_email: string}>}
    */
@@ -110,6 +120,15 @@ const authService = {
    */
   async updateSMTPSettings(settings) {
     const response = await api.put(`${API_BASE_PATH}/settings/smtp`, settings)
+    return response.data.data
+  },
+
+  /**
+   * Test SMTP settings by sending a test email (admin only)
+   * @returns {Promise<{message: string}>}
+   */
+  async testSMTPSettings() {
+    const response = await api.post(`${API_BASE_PATH}/settings/smtp/test`)
     return response.data.data
   }
 }

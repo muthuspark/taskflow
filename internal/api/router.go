@@ -46,6 +46,7 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 
 	// Auth endpoints (requires auth)
 	mux.Handle("PUT "+apiBasePath+"/auth/password", bodyLimitMw(authMw(http.HandlerFunc(authHandlers.ChangePassword))))
+	mux.Handle("PUT "+apiBasePath+"/auth/email", bodyLimitMw(authMw(http.HandlerFunc(authHandlers.ChangeEmail))))
 
 	// Protected endpoints - wrap with auth middleware
 	// Jobs endpoints
@@ -77,6 +78,7 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	// Settings endpoints (admin only)
 	mux.Handle("GET "+apiBasePath+"/settings/smtp", authMw(http.HandlerFunc(authHandlers.GetSMTPSettings)))
 	mux.Handle("PUT "+apiBasePath+"/settings/smtp", bodyLimitMw(authMw(http.HandlerFunc(authHandlers.UpdateSMTPSettings))))
+	mux.Handle("POST "+apiBasePath+"/settings/smtp/test", authMw(http.HandlerFunc(authHandlers.TestSMTPSettings)))
 
 	// WebSocket endpoints (no auth middleware applied here - handler manages auth internally)
 	mux.HandleFunc("GET "+apiBasePath+"/ws/logs", wsHub.HandleLogsWebSocket)
