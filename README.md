@@ -196,6 +196,39 @@ On first run with no users, the app enters bootstrap mode. A setup endpoint crea
 - Cleanup runs daily at midnight UTC
 - Configurable via `LOG_RETENTION_DAYS` environment variable
 
+## Logs
+
+### Application Logs
+
+TaskFlow logs to **stdout/stderr** using Go's standard `log` package:
+
+```bash
+# Foreground mode - logs appear in terminal
+./taskflow
+
+# With debug logging
+LOG_LEVEL=debug ./taskflow
+
+# Daemon mode - redirect to file
+./taskflow > /var/log/taskflow.log 2>&1 &
+
+# Docker
+docker logs <container_name>
+```
+
+When using **systemd**, logs are captured by journald:
+```bash
+journalctl -u taskflow -f        # Follow logs
+journalctl -u taskflow --since today
+```
+
+### Job Execution Logs
+
+Job output (stdout/stderr from scripts) is stored in the **database** and viewable in the web UI:
+- Navigate to a job's run history
+- Click on a specific run to view detailed logs
+- Logs can be opened in a full-page view for printing
+
 ## Testing
 
 Run the test suite:
