@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-01-16
+
+### Added
+- TaskFlow favicon (blue clock face with play arrow symbolizing scheduled task execution)
+
+### Changed
+- Disabled jobs now show "Enable" button instead of "Run Now" in job list and detail views
+  - Clicking "Enable" enables the job, then the button changes to "Run Now"
+  - Provides clearer UX for managing disabled jobs
+
 ## [0.8.0] - 2026-01-16
 
 ### Changed
