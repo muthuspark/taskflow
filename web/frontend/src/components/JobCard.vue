@@ -9,7 +9,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['click', 'run', 'delete'])
+const emit = defineEmits(['click', 'run', 'delete', 'enable'])
 
 const statusText = computed(() => props.job.enabled ? 'enabled' : 'disabled')
 
@@ -22,6 +22,11 @@ function handleClick(e) {
 function handleRun(e) {
   e.stopPropagation()
   emit('run')
+}
+
+function handleEnable(e) {
+  e.stopPropagation()
+  emit('enable')
 }
 
 function handleDelete(e) {
@@ -63,8 +68,11 @@ function formatDate(dateStr) {
     </div>
 
     <div class="flex gap-2 mt-auto pt-3">
-      <button @click="handleRun" class="btn btn-primary btn-small">
+      <button v-if="job.enabled" @click="handleRun" class="btn btn-primary btn-small">
         Run Now
+      </button>
+      <button v-else @click="handleEnable" class="btn btn-primary btn-small">
+        Enable
       </button>
       <button @click="handleDelete" class="btn btn-danger btn-small">
         Delete

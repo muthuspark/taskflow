@@ -34,6 +34,14 @@ async function handleRun(id) {
   }
 }
 
+async function handleEnable(job) {
+  try {
+    await jobsStore.updateJob(job.id, { ...job, enabled: true })
+  } catch (e) {
+    // Error is handled by store
+  }
+}
+
 async function handleDelete(id) {
   if (confirm('Are you sure you want to delete this job?')) {
     try {
@@ -123,8 +131,21 @@ function getStatusText(job) {
               <td class="number">{{ job.retry_count }}</td>
               <td>{{ formatDate(job.created_at) }}</td>
               <td>
-                <button @click="handleRun(job.id)" class="btn btn-small btn-primary" style="margin-right: 4px;">
+                <button
+                  v-if="job.enabled"
+                  @click="handleRun(job.id)"
+                  class="btn btn-small btn-primary"
+                  style="margin-right: 4px;"
+                >
                   Run
+                </button>
+                <button
+                  v-else
+                  @click="handleEnable(job)"
+                  class="btn btn-small"
+                  style="margin-right: 4px;"
+                >
+                  Enable
                 </button>
                 <button @click="handleDelete(job.id)" class="btn btn-small btn-danger">
                   Delete

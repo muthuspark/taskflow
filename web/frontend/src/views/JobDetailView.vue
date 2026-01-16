@@ -64,6 +64,14 @@ async function handleRun() {
   }
 }
 
+async function handleEnable() {
+  try {
+    await jobsStore.updateJob(job.value.id, { ...job.value, enabled: true })
+  } catch (e) {
+    // Error handled by store
+  }
+}
+
 async function handleDelete() {
   if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
     return
@@ -137,9 +145,17 @@ function formatDuration(ms) {
             <p v-if="job.description" class="job-description">{{ job.description }}</p>
           </div>
           <div class="header-actions">
-            <button @click="handleRun" class="btn btn-primary" :disabled="runningJob">
+            <button
+              v-if="job.enabled"
+              @click="handleRun"
+              class="btn btn-primary"
+              :disabled="runningJob"
+            >
               <span v-if="runningJob">Running...</span>
               <span v-else>Run Now</span>
+            </button>
+            <button v-else @click="handleEnable" class="btn btn-primary">
+              Enable
             </button>
             <button @click="showEditForm = true" class="btn">Edit</button>
             <button @click="handleDelete" class="btn btn-danger">Delete</button>
@@ -261,8 +277,22 @@ function formatDuration(ms) {
         <div class="sidebar-box-header">Quick Actions</div>
         <div class="sidebar-box-content">
           <p class="mb-10">
-            <button @click="handleRun" class="btn btn-primary" style="width: 100%;" :disabled="runningJob">
+            <button
+              v-if="job?.enabled"
+              @click="handleRun"
+              class="btn btn-primary"
+              style="width: 100%;"
+              :disabled="runningJob"
+            >
               {{ runningJob ? 'Running...' : 'Run Now' }}
+            </button>
+            <button
+              v-else
+              @click="handleEnable"
+              class="btn btn-primary"
+              style="width: 100%;"
+            >
+              Enable
             </button>
           </p>
           <p class="mb-10">
