@@ -76,7 +76,7 @@ Set environment variables:
 export PORT=8080                    # HTTP port (default: 8080)
 export DB_PATH=/path/to/taskflow.db # Database path (default: taskflow.db)
 export JWT_SECRET=your-secret-key   # JWT signing secret (auto-generated if not set)
-export API_BASE_PATH=/api           # API base path (default: /api)
+export API_BASE_PATH=/taskflow/api  # API base path (default: /taskflow/api)
 export LOG_LEVEL=info               # Log level: debug, info, warn, error
 export ALLOWED_ORIGINS=*            # CORS origins (default: *)
 export LOG_RETENTION_DAYS=30        # Days to keep run logs (default: 30)
@@ -90,7 +90,7 @@ export SMTP_PASSWORD=password
 
 **Notes:**
 - If `JWT_SECRET` is not set, a random secret is generated at startup. This means user sessions won't persist across restarts. For production, set a fixed secret.
-- `API_BASE_PATH` is a runtime configuration. The frontend fetches it from `/taskflow-app/config` at startup, so you only need to set it on the backend. This is useful when deploying behind a reverse proxy (e.g., nginx) at a subpath like `/taskflow/api`.
+- `API_BASE_PATH` is a runtime configuration. The frontend fetches it from `/taskflow-app/config` at startup, so you only need to set it on the backend. This is useful when deploying behind a reverse proxy (e.g., nginx) at a custom subpath.
 
 ## Database
 

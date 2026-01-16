@@ -26,7 +26,7 @@ func Load() *Config {
 		DBPath:           "taskflow.db",
 		LogLevel:         "info",
 		LogRetentionDays: 30,
-		APIBasePath:      "/api",
+		APIBasePath:      "/taskflow/api",
 	}
 
 	if port := os.Getenv("PORT"); port != "" {

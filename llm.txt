@@ -83,7 +83,7 @@ make test           # Run all tests
 | PORT | 8080 | HTTP listen port |
 | DB_PATH | taskflow.db | SQLite database path |
 | JWT_SECRET | (auto-generated) | JWT signing secret |
-| API_BASE_PATH | /api | API route prefix |
+| API_BASE_PATH | /taskflow/api | API route prefix |
 | LOG_RETENTION_DAYS | 30 | Days to keep run logs |
 | ALLOWED_ORIGINS | * | CORS allowed origins |
 

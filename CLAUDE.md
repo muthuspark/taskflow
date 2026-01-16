@@ -163,7 +163,7 @@ JWT_SECRET=<required>          # HMAC secret for JWT signing
 LOG_LEVEL=info                 # Logging verbosity
 LOG_RETENTION_DAYS=30          # Delete runs older than this
 ALLOWED_ORIGINS=*              # CORS allowed origins
-API_BASE_PATH=/api             # Base path for all API endpoints (e.g., /taskflow/api)
+API_BASE_PATH=/taskflow/api    # Base path for all API endpoints (default: /taskflow/api)
 SMTP_SERVER/PORT/USERNAME/PASSWORD  # Optional email notifications
 ```
 

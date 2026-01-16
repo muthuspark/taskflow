@@ -1,4 +1,4 @@
-import api, { API_BASE_PATH } from './api'
+import api, { API_BASE_PATH, SETUP_BASE_PATH } from './api'
 
 /**
  * Auth service for handling authentication operations
@@ -29,7 +29,7 @@ const authService = {
    * @returns {Promise<{token: string, user: object}>}
    */
   async setupAdmin(username, password, email) {
-    const response = await api.post('/setup/admin', { username, password, email })
+    const response = await api.post(`${SETUP_BASE_PATH}/admin`, { username, password, email })
     const { token, user } = response.data.data
 
     // Store token and user in localStorage
@@ -44,7 +44,7 @@ const authService = {
    * @returns {Promise<{setup_required: boolean}>}
    */
   async checkSetupStatus() {
-    const response = await api.get('/setup/status')
+    const response = await api.get(`${SETUP_BASE_PATH}/status`)
     return response.data.data
   },
 

@@ -432,7 +432,7 @@ func printUsage() {
 	fmt.Println("  PORT              HTTP listen port (default: 8080)")
 	fmt.Println("  DB_PATH           SQLite database path (default: taskflow.db)")
 	fmt.Println("  JWT_SECRET        JWT signing secret (auto-generated if not set)")
-	fmt.Println("  API_BASE_PATH     API base path (default: /api)")
+	fmt.Println("  API_BASE_PATH     API base path (default: /taskflow/api)")
 	fmt.Println("  LOG_RETENTION_DAYS  Days to keep run logs (default: 30)")
 	fmt.Println("  ALLOWED_ORIGINS   CORS allowed origins (default: *)")
 }

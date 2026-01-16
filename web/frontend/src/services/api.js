@@ -1,7 +1,16 @@
 import axios from 'axios'
 
 // API base path - will be loaded from backend config
-let apiBasePath = import.meta.env.VITE_API_BASE_PATH || '/api'
+let apiBasePath = import.meta.env.VITE_API_BASE_PATH || '/taskflow/api'
+
+// Derive setup base path from API base path (e.g., /taskflow/api -> /taskflow/setup)
+function deriveSetupBasePath(apiPath) {
+  if (apiPath.endsWith('/api')) {
+    return apiPath.slice(0, -4) + '/setup'
+  }
+  return '/taskflow/setup'
+}
+let setupBasePath = deriveSetupBasePath(apiBasePath)
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -12,8 +21,9 @@ const api = axios.create({
   }
 })
 
-// Export getter for the base path (allows dynamic updates)
+// Export getter for the base paths (allows dynamic updates)
 export let API_BASE_PATH = apiBasePath
+export let SETUP_BASE_PATH = setupBasePath
 
 /**
  * Initialize API configuration from backend
@@ -25,6 +35,8 @@ export async function initApiConfig() {
     if (response.data?.data?.api_base_path) {
       apiBasePath = response.data.data.api_base_path
       API_BASE_PATH = apiBasePath
+      setupBasePath = deriveSetupBasePath(apiBasePath)
+      SETUP_BASE_PATH = setupBasePath
     }
   } catch (error) {
     // Use default if config endpoint fails

@@ -38,8 +38,18 @@ func NewRouter(st *store.Store, jwtManager *auth.JWTManager, wsHub *WSHub, corsO
 	})
 
 	// Setup endpoints (no auth required for initial setup)
-	mux.HandleFunc("GET /setup/status", authHandlers.SetupStatus)
-	mux.Handle("POST /setup/admin", bodyLimitMw(http.HandlerFunc(authHandlers.CreateFirstAdmin)))
+	// Derive setup base path from API base path (e.g., /taskflow/api -> /taskflow/setup)
+	setupBasePath := "/taskflow/setup"
+	if apiBasePath != "/taskflow/api" {
+		// Extract prefix from apiBasePath (remove /api suffix if present)
+		prefix := apiBasePath
+		if len(prefix) > 4 && prefix[len(prefix)-4:] == "/api" {
+			prefix = prefix[:len(prefix)-4]
+		}
+		setupBasePath = prefix + "/setup"
+	}
+	mux.HandleFunc("GET "+setupBasePath+"/status", authHandlers.SetupStatus)
+	mux.Handle("POST "+setupBasePath+"/admin", bodyLimitMw(http.HandlerFunc(authHandlers.CreateFirstAdmin)))
 
 	// Auth endpoints (no auth required for login)
 	mux.Handle("POST "+apiBasePath+"/auth/login", bodyLimitMw(http.HandlerFunc(authHandlers.Login)))
