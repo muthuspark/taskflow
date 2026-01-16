@@ -307,6 +307,43 @@ A Dockerfile can be created for containerized deployment.
 - **Phase 2**: Redis caching layer, multi-server deployments
 - **Phase 2**: Backup/restore utilities, audit logging
 
+## Troubleshooting
+
+### Python Script Logs Not Appearing in Real-Time
+
+**Problem:** When running Python scripts as jobs, logs don't appear until the script completes.
+
+**Cause:** Python buffers stdout when not connected to a terminal (TTY). TaskFlow executes scripts in a non-interactive environment, so Python holds output in a buffer until it fills up or the script exits.
+
+**Solutions:**
+
+1. **Use the `-u` flag** (recommended):
+   ```bash
+   #!/bin/bash
+   source .venv/bin/activate
+   python -u scripts/my_script.py
+   ```
+
+2. **Set `PYTHONUNBUFFERED` environment variable**:
+   ```bash
+   #!/bin/bash
+   export PYTHONUNBUFFERED=1
+   source .venv/bin/activate
+   python scripts/my_script.py
+   ```
+
+3. **Modify your Python script** to flush output:
+   ```python
+   # At the top of your script
+   import sys
+   sys.stdout.reconfigure(line_buffering=True)
+
+   # Or use flush=True on individual prints
+   print("Processing...", flush=True)
+   ```
+
+This applies to any language or tool that buffers output. Look for unbuffered or line-buffered output options in your runtime.
+
 ## Contributing
 
 See the PRD for detailed implementation guidelines.
