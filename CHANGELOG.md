@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-16
+
+### Changed
+- Default application root changed from `/` to `/taskflow/`
+  - API base path now defaults to `/taskflow/api` (was `/api`)
+  - Setup endpoints now at `/taskflow/setup/*` (was `/setup/*`)
+  - Frontend served at `/taskflow/` with automatic redirect from `/`
+  - Users can override via `API_BASE_PATH` environment variable
+
+### Fixed
+- Static file serving now correctly handles `/taskflow` prefix for frontend assets
+- Setup endpoint routing updated to use derived path from API base path
+
 ## [0.7.0] - 2026-01-12
 
 ### Added

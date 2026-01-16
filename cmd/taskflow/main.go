@@ -157,28 +157,45 @@ func main() {
 		}
 
 		// Serve frontend files or SPA index.html
+		// Frontend is served under /taskflow/ prefix
 		path := r.URL.Path
 		if path == "" {
 			path = "/"
 		}
 
+		// Redirect root to /taskflow/
 		if path == "/" {
+			http.Redirect(w, r, "/taskflow/", http.StatusFound)
+			return
+		}
+
+		// Handle /taskflow and /taskflow/* paths
+		const frontendPrefix = "/taskflow"
+		if path == frontendPrefix || path == frontendPrefix+"/" {
 			http.ServeFile(w, r, "web/frontend/dist/index.html")
 			return
 		}
 
-		filePath := "web/frontend/dist" + path
-		if _, err := os.Stat(filePath); err == nil {
-			http.ServeFile(w, r, filePath)
+		if strings.HasPrefix(path, frontendPrefix+"/") {
+			// Strip /taskflow prefix to get the actual file path
+			strippedPath := strings.TrimPrefix(path, frontendPrefix)
+			filePath := "web/frontend/dist" + strippedPath
+			if _, err := os.Stat(filePath); err == nil {
+				http.ServeFile(w, r, filePath)
+				return
+			}
+
+			// For SPA, serve index.html for non-asset routes
+			if !isAssetPath(strippedPath) {
+				http.ServeFile(w, r, "web/frontend/dist/index.html")
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+			}
 			return
 		}
 
-		// For SPA, serve index.html for non-asset routes
-		if !isAssetPath(path) {
-			http.ServeFile(w, r, "web/frontend/dist/index.html")
-		} else {
-			w.WriteHeader(http.StatusNotFound)
-		}
+		// For any other path, return 404
+		w.WriteHeader(http.StatusNotFound)
 	})
 
 	// Create HTTP server
@@ -258,10 +275,19 @@ func main() {
 
 // isAPIPath checks if a path should be handled by the API router
 func isAPIPath(path string, apiBasePath string) bool {
+	// Derive setup base path from API base path (e.g., /taskflow/api -> /taskflow/setup)
+	setupBasePath := "/taskflow/setup"
+	if apiBasePath != "/taskflow/api" {
+		prefix := apiBasePath
+		if len(prefix) > 4 && prefix[len(prefix)-4:] == "/api" {
+			prefix = prefix[:len(prefix)-4]
+		}
+		setupBasePath = prefix + "/setup"
+	}
 	return path == "/health" ||
 		strings.HasPrefix(path, "/taskflow-app/") ||
-		path == "/setup/status" ||
-		strings.HasPrefix(path, "/setup/") ||
+		strings.HasPrefix(path, setupBasePath+"/") ||
+		path == setupBasePath+"/status" ||
 		strings.HasPrefix(path, apiBasePath+"/")
 }
 
