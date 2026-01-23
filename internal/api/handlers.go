@@ -699,15 +699,37 @@ func (h *RunHandlers) GetRun(w http.ResponseWriter, r *http.Request) {
 func (h *RunHandlers) GetRunLogs(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
 
-	logs, err := h.store.GetLogs(runID)
+	// Parse pagination params
+	limit := 0
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	total, err := h.store.GetLogCount(runID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "Failed to count logs", "INTERNAL_ERROR")
+		return
+	}
+
+	logs, err := h.store.GetLogsPaginated(runID, limit, offset)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "Failed to get logs", "INTERNAL_ERROR")
 		return
 	}
 
 	WriteJSON(w, http.StatusOK, map[string]interface{}{
-		"logs":  logs,
-		"total": len(logs),
+		"logs":   logs,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
 	})
 }
 

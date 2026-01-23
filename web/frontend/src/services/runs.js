@@ -34,13 +34,20 @@ const runsService = {
   },
 
   /**
-   * Get logs for a run
+   * Get logs for a run with optional pagination
    * @param {string} id
-   * @returns {Promise<Array>}
+   * @param {number|null} limit - Max log entries to return
+   * @param {number|null} offset - Offset for pagination
+   * @returns {Promise<{logs: Array, total: number}>}
    */
-  async getLogs(id) {
-    const response = await api.get(`${API_BASE_PATH}/runs/${id}/logs`)
-    return response.data.data.logs
+  async getLogs(id, limit = null, offset = null) {
+    const params = new URLSearchParams()
+    if (limit != null) params.append('limit', limit.toString())
+    if (offset != null) params.append('offset', offset.toString())
+    const query = params.toString()
+    const url = `${API_BASE_PATH}/runs/${id}/logs${query ? '?' + query : ''}`
+    const response = await api.get(url)
+    return { logs: response.data.data.logs || [], total: response.data.data.total || 0 }
   }
 }
 

@@ -33,10 +33,24 @@ func (s *Store) AddLog(runID, stream, content string) (*LogEntry, error) {
 
 // GetLogs retrieves logs for a run
 func (s *Store) GetLogs(runID string) ([]*LogEntry, error) {
-	rows, err := s.db.Query(
-		`SELECT id, run_id, timestamp, stream, content FROM logs WHERE run_id = ? ORDER BY id ASC`,
-		runID,
-	)
+	return s.GetLogsPaginated(runID, 0, 0)
+}
+
+// GetLogsPaginated retrieves logs for a run with limit/offset support.
+// If limit is 0, all logs are returned.
+func (s *Store) GetLogsPaginated(runID string, limit, offset int) ([]*LogEntry, error) {
+	var query string
+	var args []interface{}
+
+	if limit > 0 {
+		query = `SELECT id, run_id, timestamp, stream, content FROM logs WHERE run_id = ? ORDER BY id ASC LIMIT ? OFFSET ?`
+		args = []interface{}{runID, limit, offset}
+	} else {
+		query = `SELECT id, run_id, timestamp, stream, content FROM logs WHERE run_id = ? ORDER BY id ASC`
+		args = []interface{}{runID}
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get logs: %w", err)
 	}
@@ -52,6 +66,16 @@ func (s *Store) GetLogs(runID string) ([]*LogEntry, error) {
 	}
 
 	return logs, rows.Err()
+}
+
+// GetLogCount returns the total number of log entries for a run.
+func (s *Store) GetLogCount(runID string) (int, error) {
+	var count int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM logs WHERE run_id = ?`, runID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count logs: %w", err)
+	}
+	return count, nil
 }
 
 // DeleteLogs deletes logs for a run

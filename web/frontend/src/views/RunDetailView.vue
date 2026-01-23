@@ -12,8 +12,12 @@ const runsStore = useRunsStore()
 // State
 const run = computed(() => runsStore.currentRun)
 const logs = computed(() => runsStore.logs)
+const totalLogs = computed(() => runsStore.totalLogs)
+const logsOffset = computed(() => runsStore.logsOffset)
+const loadingMore = computed(() => runsStore.loadingMore)
 const loading = computed(() => runsStore.loading)
 const error = computed(() => runsStore.error)
+const hasEarlierLogs = computed(() => logsOffset.value > 0)
 const wsClient = ref(null)
 const wsConnected = ref(false)
 const autoScroll = ref(true)
@@ -112,6 +116,10 @@ function refreshLogs() {
   runsStore.fetchLogs(route.params.id)
 }
 
+function loadEarlierLogs() {
+  runsStore.fetchEarlierLogs(route.params.id)
+}
+
 function goToJob() {
   if (run.value?.job_id) {
     router.push(`/jobs/${run.value.job_id}`)
@@ -208,7 +216,7 @@ function openLogsInNewTab() {
         <!-- Logs -->
         <div class="card">
           <div class="card-header">
-            <span>Logs</span>
+            <span>Logs <span v-if="totalLogs" class="log-count">({{ logs.length.toLocaleString() }} of {{ totalLogs.toLocaleString() }})</span></span>
             <div class="log-controls">
               <label class="autoscroll-label">
                 <input type="checkbox" v-model="autoScroll" />
@@ -226,6 +234,11 @@ function openLogsInNewTab() {
                 <p v-else>No output captured</p>
               </div>
               <div v-else class="log-entries">
+                <div v-if="hasEarlierLogs" class="load-earlier">
+                  <button @click="loadEarlierLogs" class="btn btn-small" :disabled="loadingMore">
+                    {{ loadingMore ? 'Loading...' : `Load earlier logs (${logsOffset.toLocaleString()} more)` }}
+                  </button>
+                </div>
                 <div
                   v-for="(log, index) in logs"
                   :key="index"
@@ -381,6 +394,32 @@ function openLogsInNewTab() {
 
 .empty-logs p {
   margin: 0;
+}
+
+.log-count {
+  font-size: 11px;
+  color: #666666;
+  font-weight: normal;
+}
+
+.load-earlier {
+  text-align: center;
+  padding: 8px;
+  border-bottom: 1px solid #333333;
+  margin-bottom: 5px;
+}
+
+.load-earlier .btn {
+  font-size: 11px;
+  background: #333333;
+  color: #cccccc;
+  border: 1px solid #555555;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+
+.load-earlier .btn:hover {
+  background: #444444;
 }
 
 .log-entries {
