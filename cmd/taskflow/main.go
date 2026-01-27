@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"github.com/taskflow/taskflow/internal/notification"
 	"github.com/taskflow/taskflow/internal/scheduler"
 	"github.com/taskflow/taskflow/internal/store"
+	"github.com/taskflow/taskflow/web"
 )
 
 const pidFileName = "taskflow.pid"
@@ -148,6 +150,13 @@ func main() {
 	router := api.NewRouter(db, jwtManager, wsHub, cfg.AllowedOrigins, sched, cfg.APIBasePath)
 	apiBasePath := cfg.APIBasePath
 
+	// Initialize embedded filesystem for serving frontend
+	staticFS, err := web.Handler()
+	if err != nil {
+		log.Fatalf("Failed to initialize embedded static files: %v", err)
+	}
+	fileServer := http.FileServer(staticFS)
+
 	// Create main handler that combines router and file server
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route API, health, and setup requests to the router
@@ -169,25 +178,40 @@ func main() {
 			return
 		}
 
+		// Helper to serve index.html from embedded filesystem
+		serveIndex := func(w http.ResponseWriter, r *http.Request) {
+			file, err := staticFS.Open("/index.html")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			defer file.Close()
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			http.ServeContent(w, r, "index.html", time.Time{}, file.(io.ReadSeeker))
+		}
+
 		// Handle /taskflow and /taskflow/* paths
 		const frontendPrefix = "/taskflow"
 		if path == frontendPrefix || path == frontendPrefix+"/" {
-			http.ServeFile(w, r, "web/frontend/dist/index.html")
+			serveIndex(w, r)
 			return
 		}
 
 		if strings.HasPrefix(path, frontendPrefix+"/") {
 			// Strip /taskflow prefix to get the actual file path
 			strippedPath := strings.TrimPrefix(path, frontendPrefix)
-			filePath := "web/frontend/dist" + strippedPath
-			if _, err := os.Stat(filePath); err == nil {
-				http.ServeFile(w, r, filePath)
+
+			// Check if the file exists in embedded filesystem
+			if file, err := staticFS.Open(strippedPath); err == nil {
+				file.Close()
+				r.URL.Path = strippedPath
+				fileServer.ServeHTTP(w, r)
 				return
 			}
 
 			// For SPA, serve index.html for non-asset routes
 			if !isAssetPath(strippedPath) {
-				http.ServeFile(w, r, "web/frontend/dist/index.html")
+				serveIndex(w, r)
 			} else {
 				w.WriteHeader(http.StatusNotFound)
 			}

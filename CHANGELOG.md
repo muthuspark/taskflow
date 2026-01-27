@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-01-27
+
+### Fixed
+- Frontend not loading when binary is run from outside project directory
+  - Previously used `http.ServeFile()` with relative paths (`web/frontend/dist/...`)
+  - Now properly serves from embedded filesystem using `web.Handler()`
+  - Binary is now fully portable and works from any directory
+
 ## [0.9.1] - 2026-01-16
 
 ### Fixed
