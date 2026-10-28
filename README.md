@@ -10,7 +10,7 @@ A lightweight, self-hosted task scheduler with a Go backend, SQLite storage, and
 - **SQLite Storage**: Zero external dependencies
 - **Web UI**: Real-time updates, live logs, resource monitoring
 - **Job Scheduling**: Cron-like scheduling with visual multi-selector
-- **Task Execution**: Sequential job execution with shell scripts
+- **Task Execution**: Configurable parallel workers for shell scripts
 - **Resource Tracking**: CPU and memory monitoring during execution
 - **User Authentication**: JWT-based auth with admin/user roles
 - **Bootstrap Mode**: First-time setup creates admin account
@@ -80,6 +80,7 @@ export API_BASE_PATH=/taskflow/api  # API base path (default: /taskflow/api)
 export LOG_LEVEL=info               # Log level: debug, info, warn, error
 export ALLOWED_ORIGINS=*            # CORS origins (default: *)
 export LOG_RETENTION_DAYS=30        # Days to keep run logs (default: 30)
+export WORKER_COUNT=3               # Concurrent jobs (default: 3; minimum: 1)
 
 # Optional: SMTP for email notifications
 export SMTP_SERVER=smtp.example.com
@@ -173,7 +174,14 @@ taskflow/
 
 ### Job Execution Model
 
-Jobs execute sequentially (one at a time) in a FIFO queue. This prevents resource contention and simplifies single-server deployments.
+Jobs run in a bounded queue with three workers by default. Set `WORKER_COUNT` to
+control how many jobs can run at once, or use `1` for sequential execution. Invalid
+or nonpositive values use the default of `3`. Restart TaskFlow after changing it.
+
+Runs of the same job execute one at a time, in enqueue order. Workers select the
+oldest runnable job, so another run of a busy job does not block unrelated jobs.
+Different jobs that share files or external resources should coordinate access in
+their scripts. The queue is held in memory and is not restored after a restart.
 
 ### Bootstrap Mode
 

@@ -23,10 +23,10 @@ type Scheduler struct {
 }
 
 // New creates a new scheduler
-func New(st *store.Store) *Scheduler {
+func New(st *store.Store, workers int) *Scheduler {
 	return &Scheduler{
 		store:   st,
-		queue:   NewJobQueue(),
+		queue:   NewJobQueue(workers),
 		matcher: NewMatcher(),
 		ticker:  time.NewTicker(internal.SchedulerCheckInterval),
 		done:    make(chan struct{}),
@@ -47,7 +47,7 @@ func (s *Scheduler) Start(ctx context.Context, handler func(*store.Job, *store.R
 
 	go s.run(ctx)
 
-	log.Println("Scheduler started")
+	log.Printf("Scheduler started with %d workers", s.queue.workers)
 	return nil
 }
 

@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -14,7 +15,12 @@ type Store struct {
 
 // New creates a new Store instance and initializes the database
 func New(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+	// DSN options apply to every pooled connection, including those opened later.
+	separator := "?"
+	if strings.Contains(dbPath, "?") {
+		separator = "&"
+	}
+	db, err := sql.Open("sqlite3", dbPath+separator+"_busy_timeout=5000&_synchronous=NORMAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -31,18 +37,7 @@ func New(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
 	}
 
-	// Set busy timeout so queries wait instead of failing immediately
-	// when the database is momentarily locked.
-	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
-		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
-	}
-
-	// Synchronous NORMAL is safe with WAL and reduces fsync overhead.
-	if _, err := db.Exec("PRAGMA synchronous=NORMAL"); err != nil {
-		return nil, fmt.Errorf("failed to set synchronous mode: %w", err)
-	}
-
-	// Limit pool to 1 writer connection since SQLite allows only one writer at a time.
+	// SQLite serializes writes; retain pooled connections for concurrent readers.
 	db.SetMaxOpenConns(4)
 	db.SetMaxIdleConns(2)
 

@@ -627,7 +627,7 @@ func (h *JobHandlers) TriggerJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enqueue the job with the run to maintain sequential execution
+	// Enqueue the run; the worker pool serializes runs of the same job.
 	h.scheduler.EnqueueWithRun(job, run)
 
 	WriteJSON(w, http.StatusCreated, run)

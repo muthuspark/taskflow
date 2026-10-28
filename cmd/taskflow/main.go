@@ -105,7 +105,7 @@ func main() {
 	jwtManager := auth.NewJWTManager(cfg.JWTSecret)
 
 	// Initialize scheduler and executor
-	sched := scheduler.New(db)
+	sched := scheduler.New(db, cfg.WorkerCount)
 	exec := executor.New(db)
 
 	// Create WebSocket hub with CORS validation
@@ -480,6 +480,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Environment Variables:")
 	fmt.Println("  PORT              HTTP listen port (default: 8080)")
+	fmt.Println("  WORKER_COUNT      Parallel job workers (default: 3; minimum: 1)")
 	fmt.Println("  DB_PATH           SQLite database path (default: taskflow.db)")
 	fmt.Println("  JWT_SECRET        JWT signing secret (auto-generated if not set)")
 	fmt.Println("  API_BASE_PATH     API base path (default: /taskflow/api)")

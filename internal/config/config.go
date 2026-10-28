@@ -7,26 +7,32 @@ import (
 )
 
 type Config struct {
-	Port              int
-	DBPath            string
-	JWTSecret         string
-	LogLevel          string
-	SMTPServer        string
-	SMTPPort          int
-	SMTPUsername      string
-	SMTPPassword      string
-	AllowedOrigins    string
-	LogRetentionDays  int
-	APIBasePath       string
+	WorkerCount      int
+	Port             int
+	DBPath           string
+	JWTSecret        string
+	LogLevel         string
+	SMTPServer       string
+	SMTPPort         int
+	SMTPUsername     string
+	SMTPPassword     string
+	AllowedOrigins   string
+	LogRetentionDays int
+	APIBasePath      string
 }
 
 func Load() *Config {
 	cfg := &Config{
+		WorkerCount:      3,
 		Port:             8080,
 		DBPath:           "taskflow.db",
 		LogLevel:         "info",
 		LogRetentionDays: 30,
 		APIBasePath:      "/taskflow/api",
+	}
+
+	if workers, err := strconv.Atoi(os.Getenv("WORKER_COUNT")); err == nil && workers > 0 {
+		cfg.WorkerCount = workers
 	}
 
 	if port := os.Getenv("PORT"); port != "" {
